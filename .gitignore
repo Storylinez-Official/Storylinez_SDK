@@ -10,3 +10,4 @@ build/
 *.db
 
 upload.bat
+_git_push.bat
