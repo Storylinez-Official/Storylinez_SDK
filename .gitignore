@@ -1,0 +1,12 @@
+__pycache__/
+dist/
+build/
+*.egg-info/
+*.egg
+*.whl
+*.pyc
+*.pyo
+*.pyd
+*.db
+
+upload.bat
