@@ -1,11 +1,31 @@
+import os
+import sys
+import time
+from dotenv import load_dotenv
 from storylinez import StorylinezClient
 
-# Replace these with your actual credentials
-API_KEY = "api_your_key_here"
-API_SECRET = "your_secret_here"
-ORG_ID = "your_org_id_here"
+# Load environment variables from .env file
+load_dotenv()
+
+# Get API credentials from environment variables or use placeholders
+API_KEY = os.environ.get("STORYLINEZ_API_KEY", "api_your_key_here")
+API_SECRET = os.environ.get("STORYLINEZ_API_SECRET", "your_secret_here")
+ORG_ID = os.environ.get("STORYLINEZ_ORG_ID", "your_org_id_here")
+
+def print_section(title):
+    """Helper function to print a section header"""
+    print(f"\n{'=' * 10} {title} {'=' * 10}")
 
 def main():
+    # Exit if no actual API credentials are provided
+    if API_KEY == "api_your_key_here" or API_SECRET == "your_secret_here" or ORG_ID == "your_org_id_here":
+        print("Please set STORYLINEZ_API_KEY, STORYLINEZ_API_SECRET, and STORYLINEZ_ORG_ID in your environment variables or .env file")
+        print("You can create a .env file in the project root with the following content:")
+        print("STORYLINEZ_API_KEY=your_actual_key")
+        print("STORYLINEZ_API_SECRET=your_actual_secret")
+        print("STORYLINEZ_ORG_ID=your_actual_org_id")
+        return
+    
     # Initialize the client with API credentials and default org_id
     client = StorylinezClient(
         api_key=API_KEY, 
@@ -14,7 +34,7 @@ def main():
     )
     
     # Example 1: Create a storyboard for a project
-    print("\n=== Creating a Storyboard ===")
+    print_section("Creating a Storyboard")
     try:
         # First, create a project (if you don't have one already)
         project_result = client.project.create_project(
@@ -32,12 +52,16 @@ def main():
             temperature=0.7
         )
         
-        # Now create the storyboard
+        # Now create the storyboard with our enhanced SDK
+        # Notice we can specify all parameters explicitly
         storyboard_result = client.storyboard.create_storyboard(
             project_id=project_id,
-            deepthink=True,
-            web_search=True,
-            temperature=0.7
+            deepthink=True,            # Enable deep thinking for better results
+            web_search=True,           # Enable web search for up-to-date info
+            temperature=0.7,           # Balance between creativity and determinism
+            iterations=3,              # Number of refinement passes
+            full_length=120,           # Target 2-minute video
+            voiceover_mode="generated" # Use AI-generated voiceover
         )
         
         storyboard_id = storyboard_result.get("storyboard", {}).get("storyboard_id")
@@ -45,13 +69,19 @@ def main():
         
         print(f"Created storyboard with ID: {storyboard_id}")
         print(f"Storyboard generation job ID: {job_id}")
+        
+        # You can use the wait_for_generation_complete helper to wait for the job to complete
+        # Uncomment the following lines to wait for completion (might take a few minutes)
+        # print("Waiting for storyboard generation to complete...")
+        # completed_job = client.storyboard.wait_for_generation_complete(job_id, polling_interval=5, timeout=300)
+        # print(f"Storyboard generation completed with status: {completed_job.get('status')}")
     except Exception as e:
         print(f"Error creating storyboard: {str(e)}")
     
     # Example 2: Get storyboard details
-    print("\n=== Getting Storyboard Details ===")
+    print_section("Getting Storyboard Details")
     try:
-        # You would use an actual storyboard_id here
+        # You should use an actual storyboard_id here
         storyboard_id = "your_storyboard_id_here"  # Replace with actual ID
         
         storyboard = client.storyboard.get_storyboard(
@@ -62,6 +92,7 @@ def main():
         print(f"Storyboard status: {'Edited' if storyboard.get('edited_storyboard') else 'Original'}")
         print(f"Created at: {storyboard.get('created_at')}")
         print(f"Last updated: {storyboard.get('updated_at')}")
+        print(f"Is stale: {storyboard.get('is_stale', False)}")
         
         # For demonstration, we'll print just a few key details
         if 'old_job_result' in storyboard:
@@ -71,7 +102,7 @@ def main():
         print(f"Error getting storyboard: {str(e)}")
     
     # Example 3: Update a storyboard with the latest project data
-    print("\n=== Updating Storyboard ===")
+    print_section("Updating Storyboard")
     try:
         # Use an actual storyboard_id
         update_result = client.storyboard.update_storyboard(
@@ -80,11 +111,13 @@ def main():
         )
         
         print("Storyboard updated successfully")
+        print(f"Storyboard is now {'stale' if update_result.get('storyboard', {}).get('is_stale') else 'current'}")
+        print("You should redo the storyboard to apply these updates")
     except Exception as e:
         print(f"Error updating storyboard: {str(e)}")
     
     # Example 4: Modify storyboard values
-    print("\n=== Modifying Storyboard Values ===")
+    print_section("Modifying Storyboard Values")
     try:
         # Update parameters and add regeneration prompt
         modify_result = client.storyboard.update_storyboard_values(
@@ -95,11 +128,12 @@ def main():
         )
         
         print("Storyboard values modified successfully")
+        print("The storyboard is now marked as stale and needs regeneration")
     except Exception as e:
         print(f"Error modifying storyboard: {str(e)}")
     
     # Example 5: Redo a storyboard generation job
-    print("\n=== Redoing Storyboard Generation ===")
+    print_section("Redoing Storyboard Generation")
     try:
         redo_result = client.storyboard.redo_storyboard(
             storyboard_id="your_storyboard_id_here",  # Replace with actual ID
@@ -112,7 +146,7 @@ def main():
         print(f"Error redoing storyboard: {str(e)}")
     
     # Example 6: Get storyboard media
-    print("\n=== Getting Storyboard Media ===")
+    print_section("Getting Storyboard Media")
     try:
         media_result = client.storyboard.get_storyboard_media(
             storyboard_id="your_storyboard_id_here",  # Replace with actual ID
@@ -126,11 +160,26 @@ def main():
         
         print(f"Storyboard contains {video_count} videos and {music_count} audio tracks")
         print(f"Has voiceover: {has_voiceover}")
+        
+        # Print detailed information about media
+        if video_count > 0:
+            print("\nVideo information:")
+            videos = media_result.get("media", {}).get("videos", [])
+            for i, video in enumerate(videos[:3]):  # Show first 3 videos
+                print(f"  Video {i+1}:")
+                print(f"    File ID: {video.get('file_id')}")
+                print(f"    Path: {video.get('path')}")
+                print(f"    Thumbnail URL: {video.get('thumbnail_url', 'N/A')}")
+                
+                # Get scene and details from storyboard metadata
+                metadata = video.get("storyboard_metadata", {})
+                print(f"    Scene: {metadata.get('scene', 'N/A')}")
+                print(f"    Details: {metadata.get('details', 'N/A')}")
     except Exception as e:
         print(f"Error getting storyboard media: {str(e)}")
     
     # Example 7: Reorder items in a storyboard
-    print("\n=== Reordering Storyboard Items ===")
+    print_section("Reordering Storyboard Items")
     try:
         # Reorder videos - first becomes last
         reorder_result = client.storyboard.reorder_storyboard_items(
@@ -140,11 +189,12 @@ def main():
         )
         
         print("Videos reordered successfully")
+        print("The storyboard is now marked as stale and needs regeneration")
     except Exception as e:
         print(f"Error reordering storyboard items: {str(e)}")
     
     # Example 8: Edit a storyboard item
-    print("\n=== Editing Storyboard Item ===")
+    print_section("Editing Storyboard Item")
     try:
         # Update a video's properties
         updated_item = {
@@ -152,7 +202,10 @@ def main():
             "frame": 2.5,  # Adjusted timing
             "scene": "Product demonstration",  # Updated description
             "details": "Close-up of product being used, highlighting sustainable materials",
-            "highlight": True,
+            "highlight": {
+                "in": 0.5,
+                "out": 8.0
+            },
             "transition_in": "fade"
         }
         
@@ -168,7 +221,7 @@ def main():
         print(f"Error editing storyboard item: {str(e)}")
     
     # Example 9: Change media in a storyboard
-    print("\n=== Changing Storyboard Media ===")
+    print_section("Changing Storyboard Media")
     try:
         # Replace a video with another one
         change_result = client.storyboard.change_storyboard_media(
@@ -183,7 +236,7 @@ def main():
         print(f"Error changing storyboard media: {str(e)}")
     
     # Example 10: View storyboard history
-    print("\n=== Viewing Storyboard History ===")
+    print_section("Viewing Storyboard History")
     try:
         history_result = client.storyboard.get_storyboard_history(
             storyboard_id="your_storyboard_id_here",  # Replace with actual ID
@@ -202,6 +255,32 @@ def main():
             print(f"{i+1}. Type: {entry_type}, Time: {timestamp}")
     except Exception as e:
         print(f"Error getting storyboard history: {str(e)}")
+    
+    # Example 11: Using convenience methods
+    print_section("Using SDK Convenience Methods")
+    try:
+        # Example of update_and_regenerate - updates a storyboard and then redoes it in one call
+        result = client.storyboard.update_and_regenerate(
+            storyboard_id="your_storyboard_id_here",  # Replace with actual ID
+            regeneration_prompt="Add more emphasis on environmental benefits",
+            update_ai_params=True,
+            include_history=True
+        )
+        
+        print(f"Storyboard updated and regeneration job started with job ID: {result.get('job_id')}")
+        
+        # Example of create_simple_edit - making multiple scene edits at once
+        edit_result = client.storyboard.create_simple_edit(
+            storyboard_id="your_storyboard_id_here",  # Replace with actual ID
+            scene_changes={
+                0: {"scene": "New Opening Scene", "details": "Updated intro details"},
+                2: {"scene": "Feature Showcase", "transition_in": "dissolve"}
+            }
+        )
+        
+        print("Multiple scenes edited successfully using the convenience method")
+    except Exception as e:
+        print(f"Error using convenience methods: {str(e)}")
 
 if __name__ == "__main__":
     main()

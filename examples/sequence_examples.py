@@ -1,9 +1,15 @@
 from storylinez import StorylinezClient
+import os
+from dotenv import load_dotenv
+import time
 
-# Replace these with your actual credentials
-API_KEY = "api_your_key_here"
-API_SECRET = "your_secret_here"
-ORG_ID = "your_org_id_here"
+# Load environment variables from .env file
+load_dotenv()
+
+# Get API credentials from environment variables
+API_KEY = os.environ.get("STORYLINEZ_API_KEY", "api_your_key_here")
+API_SECRET = os.environ.get("STORYLINEZ_API_SECRET", "your_secret_here")
+ORG_ID = os.environ.get("STORYLINEZ_ORG_ID", "your_org_id_here")
 
 def main():
     # Initialize the client with API credentials and default org_id
@@ -20,6 +26,7 @@ def main():
         project_id = "project_123abc"
         
         # Create a sequence with custom settings
+        # Note: The SDK now validates parameters before making API calls
         sequence_result = client.sequence.create_sequence(
             project_id=project_id,
             apply_template=True,
@@ -105,6 +112,11 @@ def main():
         
         print(f"Sequence contains {clips_count} video clips and {audios_count} audio tracks")
         print(f"Has voiceover: {has_voiceover}")
+        
+        # Display some detailed information about each clip
+        print("\nClip details:")
+        for i, clip in enumerate(media_result.get("media", {}).get("clips", [])):
+            print(f"  Clip {i+1}: {clip.get('file_id')} - Duration: {clip.get('sequence_metadata', {}).get('out', 0) - clip.get('sequence_metadata', {}).get('in', 0):.1f}s")
     except Exception as e:
         print(f"Error getting sequence media: {str(e)}")
     
@@ -165,7 +177,7 @@ def main():
         update_settings_result = client.sequence.update_sequence_settings(
             sequence_id="sequence_abc123",  # Replace with actual ID
             apply_grade=True,
-            grade_type="multiple",
+            grade_type="multi",
             temperature=0.7,
             regenerate_prompt="Create a more dynamic flow between clips"
         )
@@ -194,6 +206,33 @@ def main():
             print(f"{i+1}. Type: {entry_type}, Time: {timestamp}")
     except Exception as e:
         print(f"Error getting sequence history: {str(e)}")
+
+    # Example 11: Using the convenience method to update and regenerate in one step
+    print("\n=== Update and Regenerate Sequence ===")
+    try:
+        result = client.sequence.update_and_regenerate(
+            sequence_id="sequence_abc123",  # Replace with actual ID
+            regenerate_prompt="Make transitions smoother and use more dynamic shots",
+            include_history=True
+        )
+        
+        print(f"Sequence updated and regeneration job started with ID: {result.get('job_id')}")
+    except Exception as e:
+        print(f"Error updating and regenerating sequence: {str(e)}")
+
+    # Example 12: Swap two clips in the sequence
+    print("\n=== Swapping Two Clips ===")
+    try:
+        swap_result = client.sequence.swap_media(
+            sequence_id="sequence_abc123",  # Replace with actual ID
+            first_item_index=0,
+            second_item_index=2,
+            array_type="clips"
+        )
+        
+        print("First and third clips swapped successfully")
+    except Exception as e:
+        print(f"Error swapping clips: {str(e)}")
 
 if __name__ == "__main__":
     main()

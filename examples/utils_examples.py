@@ -1,10 +1,15 @@
 from storylinez import StorylinezClient
 import time
+import os
+from dotenv import load_dotenv
 
-# Replace these with your actual credentials
-API_KEY = "api_your_key_here"
-API_SECRET = "your_secret_here"
-ORG_ID = "your_org_id_here"
+# Load environment variables from .env file
+load_dotenv()
+
+# Get credentials from environment variables or use fallbacks
+API_KEY = os.environ.get("STORYLINEZ_API_KEY", "api_your_key_here")
+API_SECRET = os.environ.get("STORYLINEZ_API_SECRET", "your_secret_here")
+ORG_ID = os.environ.get("STORYLINEZ_ORG_ID", "your_org_id_here")
 
 def main():
     # Initialize the client with API credentials and default org_id

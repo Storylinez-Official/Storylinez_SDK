@@ -1,12 +1,26 @@
-from storylinez import StorylinezClient
+import os
 import time
+import dotenv
+from storylinez import StorylinezClient
 
-# Replace these with your actual credentials
-API_KEY = "api_your_key_here"
-API_SECRET = "your_secret_here"
-ORG_ID = "your_org_id_here"
+# Load environment variables from .env file
+dotenv.load_dotenv()
+
+# Get credentials from environment variables with fallbacks
+API_KEY = os.environ.get("STORYLINEZ_API_KEY", "api_your_key_here")
+API_SECRET = os.environ.get("STORYLINEZ_API_SECRET", "your_secret_here")
+ORG_ID = os.environ.get("STORYLINEZ_ORG_ID", "your_org_id_here")
 
 def main():
+    # Check if credentials are properly loaded
+    if API_KEY == "api_your_key_here" or API_SECRET == "your_secret_here":
+        print("Warning: API credentials not found in environment variables.")
+        print("Please set STORYLINEZ_API_KEY and STORYLINEZ_API_SECRET in your .env file.")
+    
+    if ORG_ID == "your_org_id_here":
+        print("Warning: Organization ID not found in environment variables.")
+        print("Please set STORYLINEZ_ORG_ID in your .env file or provide it in the function calls.")
+    
     # Initialize the client with API credentials and default org_id
     client = StorylinezClient(
         api_key=API_KEY, 
@@ -19,9 +33,9 @@ def main():
     try:
         result = client.tools.get_tool_types()
         tool_types = result.get('tool_types', [])
-        print(f"Available tool types:")
+        print(f"Available tool types ({len(tool_types)}):")
         for tool in tool_types:
-            print(f"  - {tool.get('name')}")
+            print(f"  - {tool.get('name')} ({tool.get('type')})")
     except Exception as e:
         print(f"Error getting tool types: {str(e)}")
     
@@ -72,7 +86,7 @@ def main():
         video_plan_result = client.tools.create_video_plan(
             name="Product Demo Video Plan",
             user_input="Create a comprehensive video plan for demonstrating our new product features",
-            additional_context="Must highlight eco-friendly aspects and user benefits",
+            additional_context="Must highlight eco-friendly aspects and user benefits. The video should be 2-3 minutes long and suitable for our website homepage.",
             auto_company_details=True,
             temperature=0.7
         )
@@ -88,8 +102,8 @@ def main():
         shotlist_result = client.tools.create_shotlist(
             name="Office Introduction Shotlist",
             user_input="Create a shotlist for introducing our company headquarters",
-            scene_details="Modern office with open workspace, meeting rooms, and relaxation areas",
-            visual_style="Bright, airy, with smooth camera movements",
+            scene_details="Modern office with open workspace, meeting rooms, and relaxation areas. The office has large windows with natural light and plants throughout.",
+            visual_style="Bright, airy, with smooth camera movements. Professional but welcoming. Use steady cam for walking shots and wide angles to show space.",
             temperature=0.7
         )
         
@@ -104,8 +118,8 @@ def main():
         ad_concept_result = client.tools.create_ad_concept(
             name="Holiday Special Ad Concept",
             user_input="Create an ad concept for our holiday season promotion",
-            campaign_goals="Increase sales by 30% during the holiday season",
-            target_audience="Working professionals, 25-45, with disposable income",
+            campaign_goals="Increase sales by 30% during the holiday season. Drive traffic to our website and increase social media engagement by 25%.",
+            target_audience="Working professionals, 25-45, with disposable income. Tech-savvy consumers who value quality and sustainability.",
             auto_company_details=True,
             temperature=0.7
         )
@@ -121,13 +135,13 @@ def main():
         scene_transitions_result = client.tools.create_scene_transitions(
             name="Product Journey Transitions",
             scene_descriptions=[
-                "Raw materials being harvested sustainably",
-                "Manufacturing process with eco-friendly methods",
-                "Product packaging and assembly",
-                "Customer unboxing and using the product"
+                "Raw materials being harvested sustainably in a lush forest setting",
+                "Manufacturing process with eco-friendly methods in a clean, modern factory",
+                "Product packaging and assembly with workers carefully handling items",
+                "Customer unboxing and using the product with visible satisfaction"
             ],
-            project_style="Documentary style with cinematic quality",
-            mood="Inspiring and educational",
+            project_style="Documentary style with cinematic quality. 4K footage with professional color grading.",
+            mood="Inspiring and educational. Should evoke a sense of responsibility and connection to nature.",
             auto_company_details=True,
             temperature=0.7
         )
@@ -138,21 +152,22 @@ def main():
         print(f"Error creating scene transitions: {str(e)}")
     
     # Example 8: Create scene splitter (requires an existing video in S3)
-    print("\n=== Creating Scene Splitter ===")
+    print("\n=== Creating Scene Splitter (MP4 ONLY) ===")
     try:
+        print("Note: Currently only MP4 video files are supported!")
         # In a real application, you would have a real S3 path to a video
         # splitter_result = client.tools.create_scene_splitter(
         #     name="Product Demo Scene Analysis",
-        #     video_path="userdata/my_org/videos/product_demo.mp4",
+        #     video_path="userdata/my_org/videos/product_demo.mp4",  # Must be .mp4 format
         #     bucket_name="storylinez-media"
         # )
-        
+        # print(f"Created scene splitter with ID: {splitter_result.get('tool', {}).get('tool_id')}")
         print("Scene splitter example (commented out to avoid errors)")
     except Exception as e:
         print(f"Error creating scene splitter: {str(e)}")
     
-    # Example 9: List tools for an organization
-    print("\n=== Listing Tools ===")
+    # Example 9: List tools for an organization with filtering
+    print("\n=== Listing Tools with Filtering ===")
     try:
         tools_list = client.tools.list_tools(
             tool_type="creative_brief",  # Optional filter by tool type
@@ -175,78 +190,101 @@ def main():
     try:
         # Use tool_id from a previous operation
         # In a real app, you would use an actual tool_id
-        tool_id = brief_result.get('tool', {}).get('tool_id') if 'brief_result' in locals() else "tool_abc123"
+        tool_id = brief_result.get('tool', {}).get('tool_id') if 'brief_result' in locals() else None
         
-        tool = client.tools.get_tool(
-            tool_id=tool_id,
-            include_job=True
-        )
-        
-        print(f"Tool name: {tool.get('name')}")
-        print(f"Tool type: {tool.get('tool_type')}")
-        print(f"Created at: {tool.get('created_at')}")
-        
-        # Check if job result is available
-        if 'job_result' in tool:
-            job_status = tool.get('job_result', {}).get('status', 'Unknown')
-            print(f"Job status: {job_status}")
+        if tool_id:
+            tool = client.tools.get_tool(
+                tool_id=tool_id,
+                include_job=True
+            )
             
-            if job_status == 'COMPLETED':
-                print("Job completed successfully!")
-                # In a real app, you would access and use the result data
-                # result_data = tool.get('job_result', {}).get('result', {})
+            print(f"Tool name: {tool.get('name')}")
+            print(f"Tool type: {tool.get('tool_type')}")
+            print(f"Created at: {tool.get('created_at')}")
+            
+            # Check if job result is available
+            if 'job_result' in tool:
+                job_status = tool.get('job_result', {}).get('status', 'Unknown')
+                print(f"Job status: {job_status}")
+                
+                if job_status.upper() == 'COMPLETED':
+                    print("Job completed successfully!")
+                    # In a real app, you would access and use the result data
+                    # result_data = tool.get('job_result', {}).get('result', {})
+        else:
+            print("No tool_id available from previous operations")
     except Exception as e:
         print(f"Error getting tool details: {str(e)}")
     
     # Example 11: Redo a tool with modified parameters
     print("\n=== Redoing a Tool ===")
     try:
-        # Use tool_id from a previous operation
-        # In a real app, you would use an actual tool_id
-        tool_id = "tool_abc123"  # Replace with actual ID
+        # Use tool_id from a previous operation if available
+        tool_id = brief_result.get('tool', {}).get('tool_id') if 'brief_result' in locals() else None
         
-        redo_result = client.tools.redo_tool(
-            tool_id=tool_id,
-            # Override specific input parameters
-            input_data={
-                "user_input": "Create a more detailed creative brief with focus on sustainability"
-            },
-            deepthink=True,
-            overdrive=True
-        )
-        
-        print(f"Restarted tool job with ID: {redo_result.get('job_id')}")
+        if tool_id:
+            redo_result = client.tools.redo_tool(
+                tool_id=tool_id,
+                # Override specific input parameters
+                input_data={
+                    "user_input": "Create a more detailed creative brief with focus on sustainability"
+                },
+                deepthink=True,
+                overdrive=True
+            )
+            
+            print(f"Restarted tool job with ID: {redo_result.get('job_id')}")
+        else:
+            print("No tool_id available from previous operations")
     except Exception as e:
         print(f"Error redoing tool: {str(e)}")
     
-    # Example 12: Update a tool's metadata
-    print("\n=== Updating Tool ===")
-    try:
-        # Use tool_id from a previous operation
-        # In a real app, you would use an actual tool_id
-        tool_id = "tool_abc123"  # Replace with actual ID
-        
-        update_result = client.tools.update_tool(
-            tool_id=tool_id,
-            name="Updated Product Launch Campaign",
-            tags=["marketing", "product-launch", "sustainability"]
-        )
-        
-        print(f"Tool updated successfully: {update_result.get('message')}")
-    except Exception as e:
-        print(f"Error updating tool: {str(e)}")
-    
-    # Example 13: Delete a tool
-    print("\n=== Deleting Tool ===")
-    try:
-        # In a real app, you would use an actual tool_id to delete
-        # delete_result = client.tools.delete_tool(
-        #     tool_id="tool_to_delete_123"
-        # )
-        # print(f"Tool deleted successfully: {delete_result.get('message')}")
-        print("Delete tool example (commented out to avoid errors)")
-    except Exception as e:
-        print(f"Error deleting tool: {str(e)}")
+    # Example 12: Using the wait_for_tool_completion utility method
+    print("\n=== Using wait_for_tool_completion ===")
+    print("Example commented out to avoid waiting in demo")
+    # try:
+    #     # Create a new tool
+    #     result = client.tools.create_creative_brief(
+    #         name="Quick Brief",
+    #         user_input="Create a simple creative brief"
+    #     )
+    #     
+    #     tool_id = result.get("tool", {}).get("tool_id")
+    #     print(f"Created tool with ID: {tool_id}")
+    #     
+    #     # Wait for completion (with timeout)
+    #     print("Waiting for job to complete...")
+    #     completed_tool = client.tools.wait_for_tool_completion(
+    #         tool_id=tool_id,
+    #         max_wait_time=60,  # Wait up to 60 seconds
+    #         polling_interval=2  # Check every 2 seconds
+    #     )
+    #     
+    #     print("Job completed!")
+    #     # Access the completed results
+    #     # result_data = completed_tool.get('job_result', {}).get('result', {})
+    # except TimeoutError as e:
+    #     print(f"Timeout waiting for job: {str(e)}")
+    # except Exception as e:
+    #     print(f"Error: {str(e)}")
+
+    # Example 13: Using the create_and_wait convenience method
+    print("\n=== Using create_and_wait ===")
+    print("Example commented out to avoid waiting in demo")
+    # try:
+    #     # Create a tool and wait for completion in one call
+    #     completed_tool = client.tools.create_and_wait(
+    #         tool_type="creative_brief",
+    #         name="One-step Brief",
+    #         user_input="Create a brief for a quick campaign",
+    #         max_wait_time=60  # Wait up to 60 seconds
+    #     )
+    #     
+    #     print("Tool created and job completed!")
+    #     # Access the completed results
+    #     # result_data = completed_tool.get('job_result', {}).get('result', {})
+    # except Exception as e:
+    #     print(f"Error: {str(e)}")
 
 if __name__ == "__main__":
     main()

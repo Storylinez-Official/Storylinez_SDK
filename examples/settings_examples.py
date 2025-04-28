@@ -1,9 +1,14 @@
+import os
+from dotenv import load_dotenv
 from storylinez import StorylinezClient
 
-# Replace these with your actual credentials
-API_KEY = "api_your_key_here"
-API_SECRET = "your_secret_here"
-ORG_ID = "your_org_id_here"
+# Load environment variables from .env file
+load_dotenv()
+
+# Get credentials from environment variables, with fallbacks
+API_KEY = os.environ.get("STORYLINEZ_API_KEY", "api_your_key_here")
+API_SECRET = os.environ.get("STORYLINEZ_API_SECRET", "your_secret_here")
+ORG_ID = os.environ.get("STORYLINEZ_ORG_ID", "your_org_id_here")
 
 def main():
     # Initialize the client with API credentials and default org_id
@@ -24,8 +29,8 @@ def main():
     except Exception as e:
         print(f"Error getting settings: {str(e)}")
     
-    # Example 2: Save all settings
-    print("\n=== Saving All Settings ===")
+    # Example 2: Save all settings using category dictionaries
+    print("\n=== Saving All Settings (Using Dictionaries) ===")
     try:
         result = client.settings.save_settings(
             ai_params={
@@ -44,6 +49,21 @@ def main():
                 "default_view": "list",
                 "language": "en"
             }
+        )
+        print(f"Settings saved successfully: {result.get('message')}")
+    except Exception as e:
+        print(f"Error saving settings: {str(e)}")
+    
+    # Example 2B: Save settings using individual parameters
+    print("\n=== Saving Settings (Using Individual Parameters) ===")
+    try:
+        result = client.settings.save_settings(
+            temperature=0.75,
+            iterations=4,
+            dark_mode=True,
+            language="en-US",
+            generate_thumbnail=True,
+            generate_download=True
         )
         print(f"Settings saved successfully: {result.get('message')}")
     except Exception as e:
@@ -144,6 +164,28 @@ def main():
         print(f"Job deleted: {result.get('message')}")
     except Exception as e:
         print(f"Error deleting job: {str(e)}")
+    
+    # Example 11: Using convenience methods
+    print("\n=== Using Helper Methods ===")
+    try:
+        # Apply a settings preset
+        print("Applying 'creative' preset...")
+        result = client.settings.apply_preset("creative")
+        print(f"Preset applied: {result.get('message')}")
+        
+        # Toggle theme
+        print("\nToggling theme...")
+        result = client.settings.toggle_theme()
+        print(f"Theme toggled: {result.get('message')}")
+        print(f"New theme: {'Dark' if result.get('dark_mode') else 'Light'} mode")
+        
+        # Backup settings to file
+        print("\nBacking up settings...")
+        backup_file = client.settings.backup_settings()
+        print(f"Settings backed up to: {backup_file}")
+        
+    except Exception as e:
+        print(f"Error using helper methods: {str(e)}")
 
 if __name__ == "__main__":
     main()

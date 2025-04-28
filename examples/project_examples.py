@@ -1,9 +1,16 @@
 from storylinez import StorylinezClient
+import os
+from dotenv import load_dotenv
+from datetime import datetime, timedelta
 
-# Replace these with your actual credentials
-API_KEY = "api_your_key_here"
-API_SECRET = "your_secret_here"
-ORG_ID = "your_org_id_here"
+# Load credentials from .env file
+load_dotenv()
+
+# Get API credentials from environment variables
+API_KEY = os.getenv("STORYLINEZ_API_KEY")
+API_SECRET = os.getenv("STORYLINEZ_API_SECRET")
+# You can also store ORG_ID in .env if preferred
+ORG_ID = os.environ.get("STORYLINEZ_ORG_ID", "your_org_id_here")
 
 def main():
     # Initialize the client with API credentials and default org_id
@@ -54,11 +61,15 @@ def main():
     except Exception as e:
         print(f"Error with file operations: {str(e)}")
     
-    # Example 4: Search for projects
-    print("\n=== Searching Projects ===")
+    # Example 4: Search for projects with datetime filtering
+    print("\n=== Searching Projects with Date Filters ===")
+    # Demo of using datetime objects instead of ISO strings
+    one_month_ago = datetime.now() - timedelta(days=30)
+    
     search_results = client.project.search_projects(
         query="product",
         search_fields=["name", "purpose"],
+        created_after=one_month_ago,  # SDK will convert to ISO format
         generate_thumbnail_links=True,
         limit=5
     )
@@ -120,6 +131,20 @@ def main():
         folder_id=second_folder_id
     )
     print(f"Moved project to folder: {second_folder.get('name')}")
+    
+    # Example 9: Use the new convenience method to create a project with files in one step
+    print("\n=== Using Convenience Method to Create Project with Files ===")
+    try:
+        combined_project = client.project.create_project_with_files(
+            name="Combined Workflow Project",
+            orientation="portrait",
+            files=[file_id],
+            folder_name="Quick Projects",
+            purpose="Demonstrating combined workflows"
+        )
+        print(f"Created project with ID: {combined_project.get('project', {}).get('project_id')}")
+    except Exception as e:
+        print(f"Error with convenience method: {str(e)}")
 
 if __name__ == "__main__":
     main()

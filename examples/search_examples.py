@@ -1,9 +1,14 @@
+import os
+import dotenv
 from storylinez import StorylinezClient
 
-# Replace these with your actual credentials
-API_KEY = "api_your_key_here"
-API_SECRET = "your_secret_here"
-ORG_ID = "your_org_id_here"
+# Load environment variables from .env file
+dotenv.load_dotenv()
+
+# Get credentials from environment variables or use placeholders
+API_KEY = os.environ.get("STORYLINEZ_API_KEY", "api_your_key_here")
+API_SECRET = os.environ.get("STORYLINEZ_API_SECRET", "your_secret_here")
+ORG_ID = os.environ.get("STORYLINEZ_ORG_ID", "your_org_id_here")
 
 def main():
     # Initialize the client with API credentials and default org_id
@@ -39,7 +44,7 @@ def main():
         for obj, matches in item.get('matched_objects', {}).items():
             print(f"  * Found {obj}: {len(matches)} instances")
     
-    # Example 3: Search audio by genre
+    # Example 3: Search audio by genre with improved parameter handling
     print("\n=== Searching Audio by Genre ===")
     genre_results = client.search.search_audio_by_genre(
         genres=["rock", "electronic"],
@@ -54,11 +59,12 @@ def main():
         for genre, prob in item.get('matched_genres', {}).items():
             print(f"  * {genre}: {prob:.2f} confidence")
     
-    # Example 4: Search for images by color
+    # Example 4: Search for images by color using hex color conversion
     print("\n=== Searching Images by Color ===")
+    # Using new hex_color parameter for easier color search
     color_results = client.search.search_image_by_color(
+        hex_color="#FF5500",  # Using hex color instead of hue range
         color_moods=["warm", "vibrant"],
-        dominant_hues={"min": 0, "max": 30},  # Red-orange range
         generate_thumbnail=True
     )
     
@@ -94,6 +100,33 @@ def main():
     for item in tags_results.get('results', [])[:3]:
         print(f"- {item.get('filename')} ({item.get('media_type')})")
         print(f"  * Matched tags: {', '.join(item.get('matched_tags', []))}")
+
+    # Example 7: Advanced workflow method - Topic-based search
+    print("\n=== Topic-Based Search (Workflow Method) ===")
+    topic_results = client.search.search_topics(
+        topic="technology",
+        subtopics=["artificial intelligence", "machine learning"],
+        media_types=["video", "audio"],
+        page_size=5
+    )
+
+    print(f"Found {topic_results.get('pagination', {}).get('total_results', 0)} items related to the topic")
+    for item in topic_results.get('results', [])[:3]:
+        print(f"- {item.get('filename')} ({item.get('media_type')})")
+        print(f"  * {item.get('summary', '')[:100]}...")
+
+    # Example 8: Audio search by transcription
+    print("\n=== Searching Audio by Transcription ===")
+    transcript_results = client.search.search_audio_by_transcription(
+        query="important announcement about the company",
+        generate_thumbnail=True
+    )
+
+    print(f"Found {transcript_results.get('pagination', {}).get('total_results', 0)} matching audio files")
+    for item in transcript_results.get('results', [])[:2]:
+        print(f"- {item.get('filename')}")
+        for match in item.get('transcript_matches', [])[:1]:
+            print(f"  * Match: \"{match.get('text', '')[:100]}...\"")
 
 if __name__ == "__main__":
     main()

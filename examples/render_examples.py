@@ -1,10 +1,15 @@
 from storylinez import StorylinezClient
 import time
+import os
+from dotenv import load_dotenv
 
-# Replace these with your actual credentials
-API_KEY = "api_your_key_here"
-API_SECRET = "your_secret_here"
-ORG_ID = "your_org_id_here"
+# Load environment variables from .env file
+load_dotenv()
+
+# Get API credentials from environment variables with fallbacks
+API_KEY = os.environ.get("STORYLINEZ_API_KEY", "api_your_key_here")
+API_SECRET = os.environ.get("STORYLINEZ_API_SECRET", "your_secret_here")
+ORG_ID = os.environ.get("STORYLINEZ_ORG_ID", "your_org_id_here")
 
 def main():
     # Initialize the client with API credentials and default org_id
@@ -30,11 +35,11 @@ def main():
             bg_music_volume=0.5,
             video_audio_volume=0.7,
             voiceover_volume=1.0,
-            # Subtitle settings
+            # Subtitle settings - now supporting hex colors!
             subtitle_enabled=True,
             subtitle_font_size=36,
-            subtitle_color=(255, 255, 255, 255),
-            subtitle_bg_color=(0, 0, 0, 180),
+            subtitle_color="#FFFFFF",  # Using hex color code
+            subtitle_bg_color=[0, 0, 0, 180],  # Using RGBA values
             # Outro settings
             outro_duration=5.0,
             company_name="Acme Corporation",
@@ -159,6 +164,49 @@ def main():
         print(f"Note: {update_result.get('note')}")
     except Exception as e:
         print(f"Error updating render from sequence: {str(e)}")
+    
+    # Example 8: Advanced workflow - Create and wait for completion
+    print("\n=== Advanced Workflow: Create and Wait for Render ===")
+    try:
+        # Create a render and wait for it to complete
+        project_id = "project_123abc"  # Replace with actual ID
+        
+        print("Starting render and waiting for completion...")
+        complete_result = client.render.create_and_wait_for_render(
+            project_id=project_id,
+            target_width=1280,
+            target_height=720,
+            bg_music_volume=0.6,
+            subtitle_enabled=True,
+            company_name="Quick Render Inc.",
+            poll_interval=10,  # Check every 10 seconds
+            timeout=300        # Wait up to 5 minutes
+        )
+        
+        print(f"Render completed! Status: {complete_result.get('job_result', {}).get('status')}")
+        print(f"Download URL: {complete_result.get('download_url', 'Not available')[:50]}...")
+    except TimeoutError as e:
+        print(f"Render timed out: {str(e)}")
+    except Exception as e:
+        print(f"Error in create-and-wait workflow: {str(e)}")
+    
+    # Example 9: Advanced workflow - Update settings and redo
+    print("\n=== Advanced Workflow: Update Settings and Redo Render ===")
+    try:
+        render_id = "render_abc123"  # Replace with actual ID
+        
+        print("Updating settings and redoing render...")
+        update_redo_result = client.render.update_settings_and_redo(
+            render_id=render_id,
+            bg_music_volume=0.3,
+            subtitle_color="#FFFF00",  # Yellow subtitles
+            color_balance_fix=True,
+            wait_for_completion=False  # Don't wait for completion in this example
+        )
+        
+        print(f"Update and redo started! New job ID: {update_redo_result.get('job_id')}")
+    except Exception as e:
+        print(f"Error in update-and-redo workflow: {str(e)}")
 
 if __name__ == "__main__":
     main()
