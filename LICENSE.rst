@@ -1,4 +1,4 @@
-Copyright (c) 2024 Storylinez LLC
+Copyright (c) 2024 Storylinezads LLC
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
@@ -9,9 +9,6 @@ the following conditions:
 
 1. The above copyright notice and this permission notice shall be
    included in all copies or substantial portions of the Software.
-
-2. Credit must be given to the original author, Storylinez LLC, in any
-   use, distribution, or publication of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF

@@ -24,7 +24,6 @@
 - [Contributing](#contributing)
 - [License](#license)
 - [Support](#support)
-- [Changelog](#changelog)
 
 ## Overview
 

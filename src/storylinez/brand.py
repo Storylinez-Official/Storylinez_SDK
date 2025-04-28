@@ -24,6 +24,9 @@ class BrandClient(BaseClient):
         """
         super().__init__(api_key, api_secret, base_url, default_org_id)
         self.brand_url = f"{self.base_url}/brand"
+        
+        # Define allowed logo image formats (matching the image standards in the SDK)
+        self.allowed_logo_formats = ['jpg', 'jpeg', 'png']
     
     @staticmethod
     def validate_rgb(color) -> List[int]:
@@ -99,7 +102,7 @@ class BrandClient(BaseClient):
         Generate a secure upload link for a brand logo.
         
         Args:
-            filename: Name of the logo file to upload
+            filename: Name of the logo file to upload (must be jpg, jpeg, or png)
             org_id: Organization ID (uses default if not provided)
         
         Returns:
@@ -115,11 +118,10 @@ class BrandClient(BaseClient):
         if not filename:
             raise ValueError("Filename is required.")
             
-        # Check file extension
+        # Check file extension - only allow jpg, jpeg, png
         ext = os.path.splitext(filename)[1].lower().lstrip('.')
-        allowed_extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg']
-        if ext not in allowed_extensions:
-            raise ValueError(f"File extension '{ext}' not allowed. Use one of: {', '.join(allowed_extensions)}")
+        if ext not in self.allowed_logo_formats:
+            raise ValueError(f"File extension '{ext}' not allowed for logos. Use one of: {', '.join(self.allowed_logo_formats)}")
             
         params = {
             "org_id": org_id,
@@ -143,7 +145,7 @@ class BrandClient(BaseClient):
         This is a convenience method that handles the full process: generating upload link, uploading, and optionally creating brand.
         
         Args:
-            file_path: Path to the logo file on local disk
+            file_path: Path to the logo file on local disk (must be jpg, jpeg, or png)
             org_id: Organization ID (uses default if not provided)
             name: Brand name (defaults to filename without extension if not provided)
             is_default: Whether this brand should be the default 
@@ -155,7 +157,7 @@ class BrandClient(BaseClient):
             Dictionary with upload details or created brand details if create_brand is True
             
         Raises:
-            ValueError: If file_path is invalid
+            ValueError: If file_path is invalid or has unsupported extension
             FileNotFoundError: If the file doesn't exist
             Exception: If upload fails
         """
@@ -167,8 +169,11 @@ class BrandClient(BaseClient):
         if not os.path.isfile(file_path):
             raise FileNotFoundError(f"File not found at '{file_path}'")
             
-        # Get file information
+        # Get file information and validate extension
         filename = os.path.basename(file_path)
+        ext = os.path.splitext(filename)[1].lower().lstrip('.')
+        if ext not in self.allowed_logo_formats:
+            raise ValueError(f"File extension '{ext}' not allowed for logos. Use one of: {', '.join(self.allowed_logo_formats)}")
         
         # Generate upload link
         upload_info = self.get_logo_upload_url(filename=filename, org_id=org_id)
@@ -989,7 +994,7 @@ class BrandClient(BaseClient):
         
         Args:
             name: Brand name
-            logo_path: Path to logo file
+            logo_path: Path to logo file (must be jpg, jpeg, or png)
             brand_id: Existing brand ID if updating
             org_id: Organization ID (uses default if not provided)
             **brand_params: Additional brand styling parameters
@@ -998,7 +1003,7 @@ class BrandClient(BaseClient):
             Dictionary with created or updated brand details
             
         Raises:
-            ValueError: If required parameters are missing
+            ValueError: If required parameters are missing or logo format is invalid
             FileNotFoundError: If the logo file doesn't exist
         """
         org_id = org_id or self.default_org_id
@@ -1009,8 +1014,11 @@ class BrandClient(BaseClient):
         if not os.path.isfile(logo_path):
             raise FileNotFoundError(f"Logo file not found at '{logo_path}'")
             
-        # Get file name
+        # Get file name and validate extension
         filename = os.path.basename(logo_path)
+        ext = os.path.splitext(filename)[1].lower().lstrip('.')
+        if ext not in self.allowed_logo_formats:
+            raise ValueError(f"File extension '{ext}' not allowed for logos. Use one of: {', '.join(self.allowed_logo_formats)}")
         
         # 1. Upload logo first
         upload_info = self.get_logo_upload_url(filename=filename, org_id=org_id)

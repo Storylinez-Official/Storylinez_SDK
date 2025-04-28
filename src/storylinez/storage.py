@@ -25,6 +25,41 @@ class StorageClient(BaseClient):
         """
         super().__init__(api_key, api_secret, base_url, default_org_id)
         self.storage_url = f"{self.base_url}/storage"
+        
+        # Define allowed media formats
+        self.allowed_formats = {
+            'VIDEO': ['mp4'],
+            'AUDIO': ['mp3', 'wav'], 
+            'IMAGE': ['jpg', 'jpeg', 'png']
+        }
+    
+    # Helper method to validate file extensions
+    def _validate_file_extension(self, filename: str) -> str:
+        """
+        Validates that a file has an allowed extension.
+        
+        Args:
+            filename: The filename to check
+            
+        Returns:
+            The validated file extension without the dot
+            
+        Raises:
+            ValueError: If the file extension is not allowed
+        """
+        extension = os.path.splitext(filename)[1].lower().lstrip('.')
+        if not extension:
+            raise ValueError(f"Filename '{filename}' has no extension")
+            
+        # Create a flat list of all allowed extensions
+        all_allowed_extensions = []
+        for formats in self.allowed_formats.values():
+            all_allowed_extensions.extend(formats)
+            
+        if extension not in all_allowed_extensions:
+            raise ValueError(f"File extension '{extension}' is not supported. Valid extensions are: {', '.join(all_allowed_extensions)}")
+            
+        return extension
     
     # Helper methods
     def _require_org_id(self, org_id: str = None) -> str:
@@ -50,6 +85,11 @@ class StorageClient(BaseClient):
             raise FileNotFoundError(f"File not found: {file_path}")
         if not os.path.isfile(file_path):
             raise ValueError(f"Path is not a file: {file_path}")
+            
+        # Validate file extension
+        filename = os.path.basename(file_path)
+        self._validate_file_extension(filename)
+        
         return os.path.getsize(file_path)
     
     def _convert_bool_to_str(self, value: bool) -> str:
@@ -80,12 +120,15 @@ class StorageClient(BaseClient):
             - expires_in: Expiration time in seconds
         
         Raises:
-            ValueError: If filename is empty or org_id is not provided
+            ValueError: If filename is empty or org_id is not provided or file extension is not supported
         """
         org_id = self._require_org_id(org_id)
         
         if not filename or not filename.strip():
             raise ValueError("Filename is required")
+            
+        # Validate file extension
+        self._validate_file_extension(filename)
         
         folder_path = self._validate_path(folder_path)
         
@@ -255,6 +298,9 @@ class StorageClient(BaseClient):
         
         if not filename or not filename.strip():
             raise ValueError("Filename is required")
+            
+        # Validate file extension
+        self._validate_file_extension(filename)
             
         # Determine file size if not provided
         if file_size is None:
@@ -1171,6 +1217,17 @@ class StorageClient(BaseClient):
             "failed": [],
             "skipped": []
         }
+        
+        # If file_extensions is provided, make sure they're all allowed
+        if file_extensions:
+            all_allowed_extensions = []
+            for formats in self.allowed_formats.values():
+                all_allowed_extensions.extend(formats)
+                
+            for ext in file_extensions:
+                ext = ext.lower().lstrip('.')
+                if ext not in all_allowed_extensions:
+                    raise ValueError(f"Extension '{ext}' is not in the list of allowed extensions: {', '.join(all_allowed_extensions)}")
         
         # Walk through directory
         for root, dirs, files in os.walk(local_dir):

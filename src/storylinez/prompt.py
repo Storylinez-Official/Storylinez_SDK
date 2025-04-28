@@ -26,10 +26,42 @@ class PromptClient(BaseClient):
         super().__init__(api_key, api_secret, base_url, default_org_id)
         self.prompts_url = f"{self.base_url}/prompts"
         
-        # Define allowed video extensions based on the server configuration
-        self.allowed_video_formats = [
-            "mp4", "mov", "avi", "wmv", "flv", "mkv", "webm", "m4v", "mpg", "mpeg"
-        ]
+        # Define allowed media formats
+        self.allowed_formats = {
+            'VIDEO': ['mp4'],
+            'AUDIO': ['mp3', 'wav'], 
+            'IMAGE': ['jpg', 'jpeg', 'png']
+        }
+        
+        # Specifically for reference videos, only mp4 is supported
+        self.allowed_video_formats = self.allowed_formats['VIDEO']
+    
+    # Helper method to validate file extensions
+    def _validate_file_extension(self, filename: str, media_type: str) -> str:
+        """
+        Validates that a file has an allowed extension for its media type.
+        
+        Args:
+            filename: The filename to check
+            media_type: Type of media ('VIDEO', 'AUDIO', or 'IMAGE')
+            
+        Returns:
+            The file extension without the dot
+            
+        Raises:
+            ValueError: If the file extension is not allowed for the media type
+        """
+        if media_type not in self.allowed_formats:
+            raise ValueError(f"Unknown media type: {media_type}")
+            
+        extension = os.path.splitext(filename)[1].lower().lstrip('.')
+        if not extension:
+            raise ValueError(f"Filename '{filename}' has no extension. Valid {media_type.lower()} extensions are: {', '.join(self.allowed_formats[media_type])}")
+            
+        if extension not in self.allowed_formats[media_type]:
+            raise ValueError(f"File extension '{extension}' is not supported. Valid {media_type.lower()} extensions are: {', '.join(self.allowed_formats[media_type])}")
+            
+        return extension
     
     # Prompt Operations
     
@@ -507,7 +539,7 @@ class PromptClient(BaseClient):
         Generate an upload link for a reference video.
         
         Args:
-            filename: Name of the video file to upload
+            filename: Name of the video file to upload (must be MP4 format)
             org_id: Organization ID (uses default if not provided)
             file_size: Size of the file in bytes (for storage quota check)
             
@@ -515,7 +547,7 @@ class PromptClient(BaseClient):
             Dictionary with upload URL and details
             
         Raises:
-            ValueError: If parameters are invalid or file extension is not supported
+            ValueError: If parameters are invalid or file extension is not MP4 (only MP4 files are supported)
         """
         org_id = org_id or self.default_org_id
         if not org_id:
@@ -524,13 +556,12 @@ class PromptClient(BaseClient):
         if not filename or not filename.strip():
             raise ValueError("filename is required and cannot be empty")
             
-        # Check file extension
+        # Check file extension - only mp4 is allowed for reference videos
         extension = os.path.splitext(filename)[1].lower().lstrip('.')
-        if not extension:
-            raise ValueError(f"Filename '{filename}' has no extension. Valid video extensions are: {', '.join(self.allowed_video_formats)}")
-            
-        if extension not in self.allowed_video_formats:
-            raise ValueError(f"File extension '{extension}' is not supported. Valid video extensions are: {', '.join(self.allowed_video_formats)}")
+        if extension != 'mp4':
+            raise ValueError(f"For reference videos, only MP4 format is supported. Got '{extension}' instead.")
+        
+        self._validate_file_extension(filename, 'VIDEO')
         
         # Validate file size
         if file_size is not None:
@@ -578,6 +609,7 @@ class PromptClient(BaseClient):
             
         Raises:
             ValueError: If required parameters are missing
+                       Note: Only MP4 files are supported for reference videos
         """
         org_id = org_id or self.default_org_id
         if not org_id:
@@ -902,6 +934,7 @@ class PromptClient(BaseClient):
     def _validate_video_file(self, file_path: str) -> Tuple[str, int]:
         """
         Validates a video file and returns its name and size.
+        For reference videos, only MP4 format is supported.
         
         Args:
             file_path: Path to the video file
@@ -910,7 +943,7 @@ class PromptClient(BaseClient):
             Tuple of (filename, file_size)
             
         Raises:
-            ValueError: If file doesn't exist or is not a valid video
+            ValueError: If file doesn't exist or is not a valid MP4 video
             FileNotFoundError: If file doesn't exist
         """
         if not os.path.exists(file_path):
@@ -919,12 +952,14 @@ class PromptClient(BaseClient):
         if not os.path.isfile(file_path):
             raise ValueError(f"Path is not a file: {file_path}")
             
-        # Validate file extension
+        # Validate file extension - only mp4 is supported
         filename = os.path.basename(file_path)
         extension = os.path.splitext(filename)[1].lower().lstrip('.')
         
-        if extension not in self.allowed_video_formats:
-            raise ValueError(f"File extension '{extension}' is not supported. Valid video extensions are: {', '.join(self.allowed_video_formats)}")
+        if extension != 'mp4':
+            raise ValueError(f"Only MP4 format is supported for reference videos. Got '{extension}' instead.")
+            
+        self._validate_file_extension(filename, 'VIDEO')
             
         # Get file size
         file_size = os.path.getsize(file_path)
@@ -943,7 +978,7 @@ class PromptClient(BaseClient):
         This is a convenience method that handles both the link generation, upload, and registration.
         
         Args:
-            file_path: Path to the video file on local disk
+            file_path: Path to the video file on local disk (must be MP4 format)
             org_id: Organization ID (uses default if not provided)
             context: Context description for the video
             tags: List of tags for the video
@@ -956,6 +991,7 @@ class PromptClient(BaseClient):
         Raises:
             ValueError: If file is invalid or org_id is not provided
             FileNotFoundError: If file doesn't exist
+            Note: Only MP4 files are supported for reference videos
         """
         org_id = org_id or self.default_org_id
         if not org_id:
@@ -1014,7 +1050,7 @@ class PromptClient(BaseClient):
         Upload multiple reference video files in sequence.
         
         Args:
-            file_paths: List of paths to video files
+            file_paths: List of paths to video files (must all be MP4 format)
             org_id: Organization ID (uses default if not provided)
             context: Common context description for all videos
             tags: List of tags for all videos
@@ -1025,6 +1061,7 @@ class PromptClient(BaseClient):
             
         Raises:
             ValueError: If file_paths is empty or org_id is not provided
+            Note: Only MP4 files are supported for reference videos
         """
         if not file_paths:
             raise ValueError("file_paths list cannot be empty")
