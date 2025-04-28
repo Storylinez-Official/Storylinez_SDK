@@ -13,7 +13,7 @@ class PromptClient(BaseClient):
     Provides methods for managing prompts, reference videos, and content search operations.
     """
     
-    def __init__(self, api_key: str, api_secret: str, base_url: str = "https://api.storylinez.com", default_org_id: str = None):
+    def __init__(self, api_key: str, api_secret: str, base_url: str = "https://api.storylinezads.com", default_org_id: str = None):
         """
         Initialize the PromptClient.
         
@@ -68,7 +68,7 @@ class PromptClient(BaseClient):
     def create_text_prompt(self, 
                          project_id: str, 
                          main_prompt: str, 
-                         document_context: str = "",
+                         document_context: Union[str, List[str]] = "",
                          temperature: float = 0.7, 
                          total_length: int = 20, 
                          iterations: int = 1,
@@ -138,6 +138,12 @@ class PromptClient(BaseClient):
         # Validate voiceover_mode
         if voiceover_mode not in ["generated", "uploaded"]:
             raise ValueError(f"voiceover_mode must be either 'generated' or 'uploaded', got: {voiceover_mode}")
+        
+        # Ensure document_context is always a list of strings
+        if isinstance(document_context, str):
+            document_context = [document_context]
+        elif not isinstance(document_context, list):
+            document_context = []
         
         data = {
             "project_id": project_id,
@@ -326,7 +332,7 @@ class PromptClient(BaseClient):
                      web_search: bool = None,
                      eco: bool = None,
                      main_prompt: str = None,
-                     document_context: str = None,
+                     document_context: Union[str, List[str]] = None,
                      reference_video_id: str = None,
                      skip_voiceover: bool = None,
                      voiceover_mode: str = None) -> Dict:
@@ -424,7 +430,13 @@ class PromptClient(BaseClient):
             update_data['main_prompt'] = main_prompt
             
         if document_context is not None:
-            update_data['document_context'] = document_context
+            # Ensure document_context is always a list of strings
+            if isinstance(document_context, str):
+                update_data['document_context'] = [document_context]
+            elif isinstance(document_context, list):
+                update_data['document_context'] = document_context
+            else:
+                update_data['document_context'] = []
             
         if reference_video_id is not None:
             if not reference_video_id.strip():
@@ -442,7 +454,7 @@ class PromptClient(BaseClient):
             
         return self._make_request("PUT", f"{self.prompts_url}/update", params=params, json_data=update_data)
     
-    def switch_to_text_prompt(self, prompt_id: str, main_prompt: str, document_context: str = "") -> Dict:
+    def switch_to_text_prompt(self, prompt_id: str, main_prompt: str, document_context: Union[str, List[str]] = "") -> Dict:
         """
         Switch a prompt to text type.
         
@@ -463,6 +475,12 @@ class PromptClient(BaseClient):
         if not main_prompt or not main_prompt.strip():
             raise ValueError("main_prompt is required and cannot be empty")
             
+        # Ensure document_context is always a list of strings
+        if isinstance(document_context, str):
+            document_context = [document_context]
+        elif not isinstance(document_context, list):
+            document_context = []
+        
         data = {
             "main_prompt": main_prompt,
             "document_context": document_context
@@ -517,10 +535,16 @@ class PromptClient(BaseClient):
         """
         if "main_prompt" in kwargs:
             # Switching to text prompt
+            document_context = kwargs.get("document_context", "")
+            # Ensure document_context is always a list of strings
+            if isinstance(document_context, str):
+                document_context = [document_context]
+            elif not isinstance(document_context, list):
+                document_context = []
             return self.switch_to_text_prompt(
                 prompt_id=prompt_id,
                 main_prompt=kwargs["main_prompt"],
-                document_context=kwargs.get("document_context", "")
+                document_context=document_context
             )
         elif "reference_video_id" in kwargs:
             # Switching to video prompt
@@ -1093,7 +1117,7 @@ class PromptClient(BaseClient):
     
     # Content Search Operations
     
-    def generate_search(self, 
+    def generate_search_query(self, 
                       prompt_id: str = None, 
                       project_id: str = None, 
                       num_videos: int = 5, 
@@ -1183,13 +1207,14 @@ class PromptClient(BaseClient):
             
         return self._make_request("POST", f"{self.prompts_url}/query/generate", json_data=data)
     
-    def get_search_results(self, prompt_id: str = None, project_id: str = None) -> Dict:
+    def get_search_query_results(self, prompt_id: str = None, project_id: str = None, job_id: str = None) -> Dict:
         """
         Get results from a previously started search job.
         
         Args:
             prompt_id: ID of the prompt used for the search (either this or project_id must be provided)
             project_id: ID of the project whose prompt was used (either this or prompt_id must be provided)
+            job_id: ID of the specific search job (optional, but recommended)
             
         Returns:
             Dictionary with search results or status
@@ -1205,10 +1230,12 @@ class PromptClient(BaseClient):
             params["prompt_id"] = prompt_id
         if project_id:
             params["project_id"] = project_id
+        if job_id:
+            params["job_id"] = job_id
             
         return self._make_request("GET", f"{self.prompts_url}/query/results", params=params)
     
-    def search_and_wait(self, 
+    def start_query_gen_and_wait(self, 
                         prompt_id: str = None, 
                         project_id: str = None, 
                         num_videos: int = 5, 
@@ -1244,7 +1271,7 @@ class PromptClient(BaseClient):
         import time
         
         # Start the search
-        search_response = self.generate_search(
+        search_response = self.generate_search_query(
             prompt_id=prompt_id,
             project_id=project_id,
             num_videos=num_videos,
@@ -1262,19 +1289,16 @@ class PromptClient(BaseClient):
         # Poll for results
         elapsed = 0
         while elapsed < max_wait_seconds:
-            results = self.get_search_results(
-                prompt_id=prompt_id or search_response.get("prompt_id"),
-                project_id=project_id
+            results = self.get_search_query_results(
+                prompt_id=prompt_id,
+                project_id=project_id,
+                job_id=job_id  # Pass the job_id to identify the specific search job
             )
             
             status = results.get("status")
             
             # If completed, return results
             if status == "COMPLETED":
-                return results
-                
-            # If failed or other terminal state, return the response
-            if status not in ["PENDING", "PROCESSING"]:
                 return results
                 
             # Wait before polling again

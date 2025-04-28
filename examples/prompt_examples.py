@@ -167,7 +167,7 @@ def main():
         # In a real application, you would have a valid project_id or prompt_id
         """
         # Start the search
-        search_result = client.prompt.generate_search(
+        search_result = client.prompt.generate_search_query(
             project_id="project_123abc",
             num_videos=5,
             num_audio=2,
@@ -181,22 +181,30 @@ def main():
         # After some time, get the search results
         time.sleep(3)  # Just for demonstration
         
-        search_results = client.prompt.get_search_results(
-            project_id="project_123abc"
+        # Pass the job_id to properly identify the specific search job
+        search_results = client.prompt.get_search_query_results(
+            project_id="project_123abc",
+            job_id=job_id  # Important: Include job_id for reliable results
         )
         
         status = search_results.get("status")
         print(f"Search status: {status}")
         
         if status == "COMPLETED":
-            videos = search_results.get("results", {}).get("videos", [])
-            audio = search_results.get("results", {}).get("audio", [])
-            images = search_results.get("results", {}).get("images", [])
+            results = search_results.get("results", {})
+            videos = results.get("videos", [])
+            audio = results.get("audio", [])
+            images = results.get("images", [])
             
             print(f"Found {len(videos)} videos, {len(audio)} audio files, and {len(images)} images")
+            
+            # Access the first video description
+            if videos:
+                print(f"First video: {videos[0].get('description')}")
         
         # Alternatively, use the convenience method to search and wait for results
-        search_results = client.prompt.search_and_wait(
+        # This method automatically passes the job_id internally
+        search_results = client.prompt.start_query_gen_and_wait(
             project_id="project_123abc",
             num_videos=5,
             num_audio=2,
@@ -206,8 +214,30 @@ def main():
         
         if search_results.get("status") == "COMPLETED":
             print("Search completed successfully")
+            
+            # Access the counts directly from the results
+            results = search_results.get("results", {})
+            video_count = results.get("video_count", 0)
+            audio_count = results.get("audio_count", 0)
+            image_count = results.get("image_count", 0)
+            
+            print(f"Found {video_count} videos, {audio_count} audio files, and {image_count} images")
         else:
             print(f"Search not completed in time. Status: {search_results.get('status')}")
+        """
+        
+        # Simple example - demonstrating real search (uncomment to test)
+        """
+        # This combines the search generation and polling in one convenience method
+        search_results = client.prompt.start_query_gen_and_wait(
+            project_id="project_123abc",
+            num_videos=3,
+            num_audio=2,
+            num_images=5,
+            company_details="Eco Solutions Inc. is a sustainable products company focused on reducing plastic waste.",
+            max_wait_seconds=120,
+            poll_interval_seconds=3
+        )
         """
     except ValueError as e:
         # Catch SDK validation errors
@@ -244,7 +274,7 @@ def main():
         print("Storage Usage Information:")
         print(f"Used Storage: {storage_info.get('used_bytes', 0) / (1024 * 1024):.2f} MB")
         print(f"Total Storage: {storage_info.get('total_bytes', 0) / (1024 * 1024):.2f} MB")
-        print(f"Usage Percentage: {storage_info.get('usage_percentage', 0):.2f}%")
+        print(f"Usage Percentage: {storage_info.get('usage_percentage', 0)::.2f}%")
         
         # Get subscription details
         subscription = storage_info.get('subscription', {})

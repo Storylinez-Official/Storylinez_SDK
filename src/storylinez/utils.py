@@ -10,7 +10,7 @@ class UtilsClient(BaseClient):
     Provides methods for accessing common utilities and AI-powered helpers.
     """
     
-    def __init__(self, api_key: str, api_secret: str, base_url: str = "https://api.storylinez.com", default_org_id: str = None):
+    def __init__(self, api_key: str, api_secret: str, base_url: str = "https://api.storylinezads.com", default_org_id: str = None):
         """
         Initialize the UtilsClient.
         

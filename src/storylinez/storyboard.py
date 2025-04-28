@@ -39,6 +39,7 @@ class StoryboardClient(BaseClient):
         full_length: Optional[int] = None, 
         voiceover_mode: str = "generated", 
         skip_voiceover: bool = False,
+        documents: Union[None, str, List[str]] = None,
         **kwargs
     ) -> Dict:
         """
@@ -55,6 +56,7 @@ class StoryboardClient(BaseClient):
             full_length: Target length of the video in seconds
             voiceover_mode: Voiceover mode ('generated' or 'uploaded')
             skip_voiceover: Whether to skip generating voiceover
+            documents: List of document IDs or a single document ID to include in the storyboard
             **kwargs: Additional parameters to pass to the API
             
         Returns:
@@ -116,6 +118,15 @@ class StoryboardClient(BaseClient):
         
         if full_length is not None:
             data["full_length"] = full_length
+            
+        # Ensure documents is always a list of strings if provided
+        if documents is not None:
+            if isinstance(documents, str):
+                data["documents"] = [documents]
+            elif isinstance(documents, list):
+                data["documents"] = documents
+            else:
+                data["documents"] = []
             
         # Add any additional parameters
         for key, value in kwargs.items():
@@ -229,6 +240,7 @@ class StoryboardClient(BaseClient):
         full_length: Optional[int] = None, 
         skip_voiceover: Optional[bool] = None,
         voiceover_mode: Optional[str] = None,
+        documents: Union[None, str, List[str]] = None,
         **kwargs
     ) -> Dict:
         """
@@ -248,6 +260,7 @@ class StoryboardClient(BaseClient):
             full_length: Target length of the video in seconds
             skip_voiceover: Whether to skip generating voiceover
             voiceover_mode: Voiceover mode ('generated' or 'uploaded')
+            documents: List of document IDs or a single document ID to include in the storyboard
             **kwargs: Additional parameters to pass to the API
             
         Returns:
@@ -336,6 +349,14 @@ class StoryboardClient(BaseClient):
             
             if voiceover_mode == "uploaded":
                 warnings.warn("Make sure your project has a voiceover file uploaded when using 'uploaded' mode.")
+        
+        if documents is not None:
+            if isinstance(documents, str):
+                data["documents"] = [documents]
+            elif isinstance(documents, list):
+                data["documents"] = documents
+            else:
+                data["documents"] = []
         
         # Add any additional parameters from kwargs
         for key, value in kwargs.items():

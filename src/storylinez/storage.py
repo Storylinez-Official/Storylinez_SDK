@@ -13,7 +13,7 @@ class StorageClient(BaseClient):
     Provides methods for managing files, folders, and storage resources.
     """
     
-    def __init__(self, api_key: str, api_secret: str, base_url: str = "https://api.storylinez.com", default_org_id: str = None):
+    def __init__(self, api_key: str, api_secret: str, base_url: str = "https://api.storylinezads.com", default_org_id: str = None):
         """
         Initialize the StorageClient.
         

@@ -12,7 +12,7 @@ class SequenceClient(BaseClient):
     Provides methods for creating, retrieving, and managing sequences for video generation.
     """
     
-    def __init__(self, api_key: str, api_secret: str, base_url: str = "https://api.storylinez.com", default_org_id: str = None):
+    def __init__(self, api_key: str, api_secret: str, base_url: str = "https://api.storylinezads.com", default_org_id: str = None):
         """
         Initialize the SequenceClient.
         

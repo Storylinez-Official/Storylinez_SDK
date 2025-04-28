@@ -20,7 +20,7 @@ class StorylinezClient:
     Provides unified access to all Storylinez services.
     """
     
-    def __init__(self, api_key: str, api_secret: str, base_url: str = "https://api.storylinez.com", org_id: str = None):
+    def __init__(self, api_key: str, api_secret: str, base_url: str = "https://api.storylinezads.com", org_id: str = None):
         """
         Initialize the Storylinez client with authentication details.
         
