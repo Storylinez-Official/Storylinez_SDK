@@ -4,6 +4,8 @@
 [![Python Versions](https://img.shields.io/pypi/pyversions/storylinez.svg)](https://pypi.org/project/storylinez/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+![Storylinez SDK - AI-driven content creation platform](https://github.com/Kawai-Senpai/Storylinez-SDK/blob/ecc7a73631dfd1db228baabb0ea2cf0b338fdef6/assets/Storylinez%20Cover.png)
+
 ## Table of Contents
 - [Overview](#overview)
 - [Features](#features)
