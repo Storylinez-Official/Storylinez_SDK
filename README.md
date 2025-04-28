@@ -74,19 +74,6 @@ cd Storylinez-SDK
 pip install -e .
 ```
 
-### Optional Dependencies
-
-For additional functionality:
-
-```bash
-# Install with all optional dependencies
-pip install storylinez[all]
-
-# Install specific groups
-pip install storylinez[media]  # For enhanced media processing capabilities
-pip install storylinez[visualization]  # For storyboard visualization tools
-```
-
 ## Authentication
 
 ### Using Environment Variables
