@@ -6,6 +6,8 @@
 
 ![Storylinez SDK - AI-driven content creation platform](https://github.com/Kawai-Senpai/Storylinez-SDK/blob/ecc7a73631dfd1db228baabb0ea2cf0b338fdef6/assets/Storylinez%20Cover.png)
 
+> **Note:** Example usage scripts can be found in the `examples` folder. Utility and automation scripts are located in the `scripts` folder.
+
 ## Table of Contents
 - [Overview](#overview)
 - [Features](#features)
