@@ -7,7 +7,7 @@ long_description = (this_directory / "README.md").read_text(encoding='utf-8')
 
 setup(
     name='storylinez',
-    version='0.1.0b1',  # Changed to beta version
+    version='0.1.1b1',  # Incremented patch version for bugfixes
     license="MIT",
     author='Sayanti Chatterjee, Ranit Bhowmick',
     author_email='sayantichatterjee28@gmail.com, bhowmickranitking@gmail.com',
@@ -18,6 +18,8 @@ setup(
     package_dir={'': 'src'},
     url='https://github.com/Kawai-Senpai/Storylinez-SDK',
     install_requires=[
+        'python-dotenv',
+        'ultraprint>=3.3.0',
     ],
     python_requires='>=3.6',
 )

@@ -1503,49 +1503,6 @@ def notify_completion(project_id, download_url):
     pass
 ```
 
-## SDK Versioning and Updates
-
-### Version Compatibility
-
-This README documents Storylinez SDK version `1.x`. The SDK follows semantic versioning:
-
-- **Major version** changes (1.x → 2.x) may include breaking API changes
-- **Minor version** changes (1.1 → 1.2) add features in a backward-compatible manner
-- **Patch version** changes (1.1.1 → 1.1.2) include backward-compatible bug fixes
-
-### Migration Guides
-
-#### Migrating from 0.x to 1.x
-
-If you're upgrading from a 0.x version:
-
-1. Update authentication to use the new unified client:
-   ```python
-   # Old (0.x)
-   from storylinez import StoryboardClient, SequenceClient
-   sb_client = StoryboardClient(api_key="key", api_secret="secret")
-   seq_client = SequenceClient(api_key="key", api_secret="secret")
-   
-   # New (1.x)
-   from storylinez import StorylinezClient
-   client = StorylinezClient(api_key="key", api_secret="secret")
-   # Access modules through the unified client
-   client.storyboard.create_storyboard(...)
-   client.sequence.create_sequence(...)
-   ```
-
-2. Project creation now returns a structured response:
-   ```python
-   # Old (0.x)
-   project_id = client.create_project(name="My Project")
-   
-   # New (1.x)
-   project = client.project.create_project(name="My Project")
-   project_id = project["project"]["project_id"]
-   ```
-
-3. All methods that previously returned raw API responses now include validated, structured data
-
 ### Staying Updated
 
 To get the latest version:
