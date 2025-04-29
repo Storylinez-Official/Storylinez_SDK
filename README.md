@@ -12,6 +12,7 @@
 - [Installation](#installation)
 - [Authentication](#authentication)
 - [Quick Start](#quick-start)
+- [Video Creation Process](#video-creation-process)
 - [Module Reference](#module-reference)
 - [Detailed Usage Examples](#detailed-usage-examples)
 - [Workflow Patterns](#workflow-patterns)
@@ -244,31 +245,184 @@ else:
     print(f"Render failed with status: {render['status']}")
 ```
 
-### Working with Existing Media
+## Video Creation Process
+
+The Storylinez SDK follows a structured workflow for creating professional videos. Understanding this process will help you efficiently create compelling content:
+
+### 1. Project Creation
+Start by creating a project that defines basic parameters:
+- **Project Name**: A descriptive name for your video project
+- **Orientation**: Choose between landscape (16:9) or portrait (9:16) format
+- **Purpose**: Define the goal of your video for better AI-driven content
 
 ```python
-# Upload your own media files
-video_file = client.storage.upload_file(
-    file_path="./product_demo.mp4",
-    folder_path="/marketing/product_videos",
-    analyze_video=True,
-    analyze_audio=True
-)
-
-# Search for relevant stock content
-stock_videos = client.stock.search_videos(
-    query="sustainable eco-friendly product manufacturing",
-    orientation="landscape",
-    duration_max=30,
-    num_results=5
-)
-
-# Create a project with your media
-project = client.project.create_project_with_files(
-    name="Product Demo Compilation",
+project = client.project.create_project(
+    name="Product Introduction",
     orientation="landscape", 
-    files=[video_file["file_id"]] + [v["id"] for v in stock_videos["videos"]],
-    purpose="Showcase product features with supporting contextual footage"
+    purpose="Introduce our new sustainable product line"
+)
+project_id = project["project"]["project_id"]
+```
+
+### 2. Content Prompting
+Define what your video should be about using natural language:
+- Describe the video content, target audience, and key messages
+- Add contextual information for more relevant results
+- Control the AI's creativity with temperature settings
+
+```python
+client.prompt.create_text_prompt(
+    project_id=project_id,
+    main_prompt="Create a 30-second video introducing our eco-friendly product line that reduces plastic waste by 75%",
+    document_context="Our products are made from bamboo and recycled materials. The target audience is environmentally conscious millennials.",
+    temperature=0.7,
+    total_length=30
+)
+```
+
+### 3. Media Search & Selection
+Find and add relevant media to your project:
+- Generate search queries based on your prompt
+- Search for stock videos, audio tracks, and images that match your needs
+- Add selected media to your project
+
+```python
+# Generate search queries
+search_query_results = client.prompt.start_query_gen_and_wait(
+    project_id=project_id,
+    num_videos=3,
+    num_audio=2
+)
+
+# Search for stock videos using the generated queries
+video_queries = search_query_results["result"]["results"]["videos"]
+stock_videos = client.stock.search(
+    queries=video_queries,
+    collections=["videos"],
+    detailed=True,
+    generate_thumbnail=True,
+    num_results_videos=3,
+    orientation="landscape"
+)
+
+# Add selected videos to the project
+for video in stock_videos["videos"]:
+    client.project.add_stock_file(
+        project_id=project_id,
+        stock_id=video["stock_id"],
+        media_type="videos"
+    )
+```
+
+### 4. Storyboard Creation
+Create a visual plan for your video:
+- Define the narrative structure with scenes
+- Set the pacing and flow of your story
+- Enable AI features like deepthink for better results
+
+```python
+storyboard_job = client.storyboard.create_storyboard(
+    project_id=project_id,
+    deepthink=True,      # Enable deep thinking mode for better quality
+    overdrive=False,     # Enable for maximum quality (takes longer)
+    web_search=True,     # Enable for up-to-date information
+    eco=False,           # Set to False for better results (True for faster processing)
+    iterations=3,        # More iterations = better quality
+    full_length=30,
+    voiceover_mode="generated"
+)
+```
+
+### 5. Voiceover Generation
+Create narration to accompany your visual story:
+- Generate AI voiceovers based on your storyboard
+- Upload custom voiceovers if preferred
+- Control voice characteristics and timing
+
+```python
+voiceover_job = client.voiceover.create_voiceover(
+    project_id=project_id
+)
+```
+
+### 6. Sequence Assembly
+Arrange your media into a coherent timeline:
+- Combine storyboard, media, and voiceover
+- Apply professional templates and color grading
+- Fine-tune the sequence for optimal pacing
+
+```python
+sequence_job = client.sequence.create_sequence(
+    project_id=project_id,
+    apply_template=True,
+    apply_grade=True,
+    grade_type="single",
+    deepthink=True,
+    iterations=3
+)
+```
+
+### 7. Video Rendering
+Generate the final video output:
+- Set resolution, aspect ratio, and quality
+- Configure subtitles, music, and voiceover volume
+- Add branding elements and call-to-action
+
+```python
+render_job = client.render.create_render(
+    project_id=project_id,
+    target_width=1920,
+    target_height=1080,
+    bg_music_volume=0.5,
+    video_audio_volume=0.0,  # Mute original audio
+    voiceover_volume=0.5,
+    subtitle_enabled=True,
+    outro_duration=5.0,
+    company_name="Eco Solutions Inc.",
+    call_to_action="Visit eco-solutions.com today"
+)
+```
+
+### 8. Video Delivery
+Access and distribute your completed video:
+- Get download links or streaming URLs
+- Check rendering status
+- Share or integrate with other platforms
+
+```python
+render_results = client.render.get_render(
+    project_id=project_id,
+    generate_streamable_link=True
+)
+video_url = render_results["streamable_url"]
+```
+
+### Advanced Customization Options
+
+Each step of the process offers extensive customization:
+
+- **Quality Controls**: Use `deepthink` and `overdrive` parameters to maximize quality
+- **Iteration Settings**: Increase `iterations` for better results
+- **Web Search Integration**: Enable `web_search` for up-to-date content
+- **Performance Mode**: Use `eco=True` for faster processing when quality is less critical
+- **Brand Integration**: Apply company details, logos, and styling
+
+For detailed automation workflows, see the example scripts in the `scripts` directory.
+
+### Working with Project Files
+
+You can enhance your projects by adding your own media:
+
+```python
+# Upload and add your custom media to a project
+uploaded_file = client.storage.upload_file(
+    file_path="./my_product_video.mp4",
+    folder_path="/product_demos"
+)
+
+client.project.add_associated_file(
+    project_id=project_id,
+    file_id=uploaded_file["file"]["file_id"]
 )
 ```
 
@@ -1044,3 +1198,4 @@ For support with the Storylinez SDK:
 - **Email Support:** support@storylinezads.com
 
 For enterprise customers, please contact your dedicated account manager for priority support.
+````
