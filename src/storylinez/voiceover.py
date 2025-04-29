@@ -40,7 +40,7 @@ class VoiceoverClient(BaseClient):
         
         Args:
             project_id: ID of the project to create the voiceover for
-            voiceover_code: Optional voice identifier to use (e.g., 'en-US-Neural2-F')
+            voiceover_code: Optional voice identifier to use.
             **kwargs: Additional parameters to pass to the API (for compatibility)
             
         Returns:
