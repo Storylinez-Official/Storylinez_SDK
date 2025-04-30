@@ -539,20 +539,27 @@ class UtilsClient(BaseClient):
             raise ValueError("job_id is required")
         
         start_time = time.time()
-        last_status = None
+        last_job_state = None
         
         while timeout_seconds == 0 or (time.time() - start_time) < timeout_seconds:
             job_result = self.get_job_result(job_id)
-            status = job_result.get("status")
             
-            # Call callback if provided and status changed
-            if callback and status != last_status:
-                callback(status)
-            last_status = status
+            # Determine job state by checking the response structure
+            current_job_state = "processing"  # Default state
             
-            if status == "completed":
+            if "result" in job_result and job_result.get("result"):
+                current_job_state = "completed"
+            elif job_result.get("error") is not None:
+                current_job_state = "failed"
+            
+            # Call callback if provided and state changed
+            if callback and current_job_state != last_job_state:
+                callback(current_job_state)
+            last_job_state = current_job_state
+            
+            if current_job_state == "completed":
                 return job_result
-            elif status == "failed":
+            elif current_job_state == "failed":
                 raise Exception(f"Job failed: {job_result.get('error')}")
             
             # Wait before polling again

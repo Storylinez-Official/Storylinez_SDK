@@ -84,17 +84,20 @@ def main():
         # Check job result
         try:
             job_result = client.utils.get_job_result(job_id=job_id)
-            status = job_result.get("status")
-            print(f"Job status: {status}")
             
-            if status == "completed":
+            # Determine job status by checking fields
+            has_result = "result" in job_result and job_result.get("result")
+            has_error = job_result.get("error") is not None
+            
+            if has_result:
+                print(f"Job completed successfully")
                 result = job_result.get("result", {})
                 enhanced_prompt = result.get("prompt", "")
                 print(f"Enhanced prompt: {enhanced_prompt[:100]}...")  # Show first 100 chars
-            elif status == "processing":
-                print("Job still processing. Check back later.")
+            elif has_error:
+                print(f"Job failed with error: {job_result.get('error')}")
             else:
-                print(f"Job in status: {status}")
+                print("Job still processing. Check back later.")
         except Exception as job_e:
             print(f"Error checking job result: {str(job_e)}")
             
