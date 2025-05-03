@@ -578,6 +578,8 @@ class BrandClient(BaseClient):
         is_default: Optional[bool] = None,
         is_public: Optional[bool] = None,
         logo_key: Optional[str] = None,
+        logo_upload_id: Optional[str] = None,  # Added more specific logo upload parameter
+        upload_id: Optional[str] = None,       # Keep original for backward compatibility
         # Outro settings
         outro_bg_color: Optional[Union[List[int], Tuple[int, ...], str]] = None,
         outro_logo_size: Optional[Union[List[int], Tuple[int, ...]]] = None,
@@ -648,6 +650,8 @@ class BrandClient(BaseClient):
             is_default: Whether this brand should be default
             is_public: Whether this brand is public
             logo_key: New S3 key for the logo
+            logo_upload_id: Upload ID specifically for logo uploads (preferred over generic upload_id)
+            upload_id: Legacy parameter for backward compatibility
             
             # Plus all the same styling parameters as in the create method
             # All parameters are optional - only specified ones will be updated
@@ -684,7 +688,14 @@ class BrandClient(BaseClient):
             
         if logo_key is not None:
             data["logo_key"] = logo_key
-            
+        
+        # Add the explicit logo upload ID if provided (new parameter, more specific)
+        if logo_upload_id is not None:
+            data["logo_upload_id"] = logo_upload_id
+        # Otherwise, fall back to the generic upload_id parameter if provided (for backward compatibility)
+        elif upload_id is not None:
+            data["upload_id"] = upload_id
+        
         # Process color parameters and convert to RGB if needed
         color_params = {
             "outro_bg_color": outro_bg_color,
@@ -1096,3 +1107,64 @@ class BrandClient(BaseClient):
                 )
             else:
                 raise Exception(f"No default brand found for organization {org_id} and create_if_missing=False") from e
+
+    def update_brand_with_logo(
+        self,
+        brand_id: str,
+        logo_path: str,
+        **brand_params
+    ) -> Dict:
+        """
+        Updates an existing brand with a new logo using the logo_upload_id parameter.
+        This workflow method handles the full process of generating an upload URL,
+        uploading the logo file, and updating the brand with the new logo.
+        
+        Args:
+            brand_id: ID of the brand to update
+            logo_path: Path to logo file (must be jpg, jpeg, or png)
+            **brand_params: Additional brand parameters to update
+            
+        Returns:
+            Dictionary with the updated brand details
+            
+        Raises:
+            ValueError: If required parameters are missing or logo format is invalid
+            FileNotFoundError: If the logo file doesn't exist
+        """
+        # Validate brand_id
+        if not brand_id:
+            raise ValueError("brand_id is required.")
+            
+        # Get brand details to determine org_id
+        brand = self.get(brand_id=brand_id)
+        org_id = brand.get('org_id')
+        
+        # Validate logo file exists
+        if not os.path.isfile(logo_path):
+            raise FileNotFoundError(f"Logo file not found at '{logo_path}'")
+            
+        # Get file name and validate extension
+        filename = os.path.basename(logo_path)
+        ext = os.path.splitext(filename)[1].lower().lstrip('.')
+        if ext not in self.allowed_logo_formats:
+            raise ValueError(f"File extension '{ext}' not allowed for logos. Use one of: {', '.join(self.allowed_logo_formats)}")
+        
+        # 1. Get upload URL
+        upload_info = self.get_logo_upload_url(filename=filename, org_id=org_id)
+        upload_link = upload_info.get("upload_link")
+        upload_id = upload_info.get("upload_id")
+        
+        # 2. Upload the actual file
+        try:
+            with open(logo_path, 'rb') as file_data:
+                upload_response = requests.put(upload_link, data=file_data)
+                
+                if upload_response.status_code >= 400:
+                    raise Exception(f"Logo upload failed with status {upload_response.status_code}: {upload_response.text}")
+        except Exception as e:
+            raise Exception(f"Error uploading logo: {str(e)}")
+        
+        # 3. Update the brand using logo_upload_id
+        update_params = {"logo_upload_id": upload_id}
+        update_params.update(brand_params)
+        return self.update(brand_id=brand_id, **update_params)

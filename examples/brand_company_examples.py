@@ -112,6 +112,17 @@ def main():
                     subtitle_position=2  # Center position
                 )
                 print("Updated brand with new logo and styling")
+                
+            # New example: Update an existing brand with a new logo using logo_upload_id
+            print("\n=== Updating Brand with New Logo (Using logo_upload_id) ===")
+            if os.path.exists(logo_path):
+                updated_brand = client.brand.update_brand_with_logo(
+                    brand_id=brand_id,
+                    logo_path=logo_path,
+                    # Can also update other brand parameters at the same time
+                    subtitle_position=3,  # Above bottom edge
+                )
+                print(f"Updated brand '{updated_brand.get('name')}' with new logo using logo_upload_id")
             
     except Exception as e:
         print(f"Error in logo/brand examples: {str(e)}")
