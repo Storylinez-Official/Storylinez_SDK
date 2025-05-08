@@ -7,7 +7,7 @@ long_description = (this_directory / "README.md").read_text(encoding='utf-8')
 
 setup(
     name='storylinez',
-    version='0.1.1b1',  # Incremented patch version for bugfixes
+    version='0.2.1b1',  # Incremented patch version for bugfixes
     license="MIT",
     author='Sayanti Chatterjee, Ranit Bhowmick',
     author_email='sayantichatterjee28@gmail.com, bhowmickranitking@gmail.com',

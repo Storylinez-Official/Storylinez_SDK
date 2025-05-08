@@ -103,6 +103,32 @@ def main():
             
     except Exception as e:
         print(f"Error enhancing prompt: {str(e)}")
+
+    # Example: Enhance a prompt using company_details_id
+    print("\n=== Enhancing a Prompt with Company Details ID ===")
+    try:
+        # Assume we have a company details profile ID
+        company_details_id = "company_example_id"  # Replace with actual ID in real usage
+        
+        old_prompt = "Create a video about our new product launch."
+        
+        # Start the prompt enhancement job using company_details_id
+        enhance_result = client.utils.alter_prompt(
+            old_prompt=old_prompt,
+            job_name="Product launch prompt with company profile",
+            alter_type="enhance",
+            prompt_type="prompt",
+            company_details_id=company_details_id  # Using company profile ID instead of direct details
+        )
+        
+        job_id = enhance_result.get("job_id")
+        print(f"Started prompt enhancement job with company profile ID: {job_id}")
+        
+        # In production, you'd wait for the job to complete
+        print("This would use the company details profile from your saved profiles")
+        
+    except Exception as e:
+        print(f"Error enhancing prompt with company profile: {str(e)}")
     
     # Example 6: Get search recommendations
     print("\n=== Getting Search Recommendations ===")

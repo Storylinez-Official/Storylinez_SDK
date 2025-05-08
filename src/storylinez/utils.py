@@ -108,6 +108,7 @@ class UtilsClient(BaseClient):
         old_prompt: str, 
         job_name: str = None,
         company_details: Union[str, Dict] = None,
+        company_details_id: str = None,
         edited_json: Dict = None, 
         temperature: float = 0.7,
         alter_type: str = "enhance", 
@@ -121,6 +122,7 @@ class UtilsClient(BaseClient):
             old_prompt: The original prompt text to be altered
             job_name: Optional name for the alteration job
             company_details: Company context to consider (string or dictionary)
+            company_details_id: ID of a specific company details profile to use
             edited_json: Optional previous generation/edited content
             temperature: AI temperature parameter (0.0-1.0)
             alter_type: Type of alteration to perform: "enhance" or "randomize"
@@ -138,12 +140,14 @@ class UtilsClient(BaseClient):
             - Use "randomize" to generate creative variations
             - Lower temperature (0.1-0.3) for conservative alterations
             - Higher temperature (0.7-1.0) for creative alterations
+            - You can provide company context directly via company_details or reference a saved profile via company_details_id
+            - If neither company_details nor company_details_id is provided, no company context will be included
             
         Example:
             >>> result = client.utils.alter_prompt(
             ...     old_prompt="Create a video about our product features",
             ...     job_name="Product Video Enhancement",
-            ...     company_details="Tech company focusing on AI solutions",
+            ...     company_details_id="company_0123456789",
             ...     temperature=0.6
             ... )
             >>> job_id = result.get("job_id")
@@ -187,6 +191,10 @@ class UtilsClient(BaseClient):
                 data["company_details"] = company_details
             else:
                 data["company_details"] = str(company_details)
+        
+        # Add company_details_id if provided
+        if company_details_id:
+            data["company_details_id"] = company_details_id
         
         # Query parameters
         params = {
