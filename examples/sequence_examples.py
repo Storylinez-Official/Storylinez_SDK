@@ -233,6 +233,126 @@ def main():
         print("First and third clips swapped successfully")
     except Exception as e:
         print(f"Error swapping clips: {str(e)}")
+    
+    # Example 13: Using the chat-like experience with sequences
+    print("\n=== Chat-Like Experience with Sequences ===")
+    try:
+        # Get a sequence to work with
+        sequence_id = "sequence_abc123"  # Replace with actual ID
+        
+        # Start a conversation with the AI using a natural language prompt
+        print("Sending first prompt to the AI...")
+        chat_result = client.sequence.send_chat_prompt(
+            sequence_id=sequence_id,
+            prompt="Make transitions between scenes smoother and use more dynamic camera movements",
+            include_history=True
+        )
+        
+        print(f"Chat prompt sent, job ID: {chat_result.get('job_id')}")
+        print("Processing request (in a real app, you'd handle this asynchronously)...")
+        
+        # In a real app, you'd poll for job completion or use webhooks
+        # For this example, we'll just wait a moment and then continue the conversation
+        time.sleep(2)  # This is just for the example - don't actually do this in production
+        
+        # Continue the conversation with a follow-up prompt
+        print("\nAI has responded. Sending follow-up prompt...")
+        followup_result = client.sequence.send_chat_prompt(
+            sequence_id=sequence_id,
+            prompt="I like the smooth transitions. Now make the color grade more cinematic and dramatic.",
+            include_history=True
+        )
+        
+        print(f"Follow-up prompt sent, job ID: {followup_result.get('job_id')}")
+        
+        # Retrieve the conversation history
+        print("\nRetrieving conversation history...")
+        chat_history = client.sequence.get_chat_history(
+            sequence_id=sequence_id,
+            limit=10
+        )
+        
+        # Display the conversation in a chat-like format
+        print("\n=== Sequence Chat History ===")
+        for entry in chat_history.get("conversation", []):
+            role = entry.get("role", "unknown")
+            timestamp = entry.get("timestamp", "")
+            
+            if role == "user":
+                print(f"\n👤 USER ({timestamp}):")
+                print(f"  {entry.get('content', '')}")
+            elif role == "assistant":
+                print(f"\n🤖 AI ({timestamp}):")
+                summary = entry.get("sequence_data_summary", {})
+                print(f"  Generated sequence with {summary.get('clip_count', 0)} clips")
+                print(f"  Approximate duration: {summary.get('approximate_duration', 0):.1f} seconds")
+                print(f"  Audio tracks: {summary.get('audio_track_count', 0)}")
+        
+        print("\n=== End of Conversation ===")
+        
+        # Example of restoring a previous version from history
+        print("\n=== Restoring a Previous Version ===")
+        # Get the first generation timestamp from history
+        history_entries = client.sequence.get_sequence_history(
+            sequence_id=sequence_id,
+            history_type="generation",
+            limit=5
+        ).get("history", [])
+        
+        if history_entries:
+            # Get the timestamp of the first generation
+            timestamp = history_entries[0].get("timestamp")
+            print(f"Found history entry from {timestamp}")
+            
+            # Restore this version
+            restore_result = client.sequence.restore_version(
+                sequence_id=sequence_id,
+                history_timestamp=timestamp,
+                regenerate_prompt="Restore this version but make colors more vibrant"
+            )
+            
+            print(f"Previous version restored and regeneration job started with ID: {restore_result.get('job_id')}")
+        else:
+            print("No history entries found to restore")
+        
+    except Exception as e:
+        print(f"Error using chat-like experience: {str(e)}")
+    
+    # Example 14: Progressive conversation with references to previous changes
+    print("\n=== Progressive Conversation with Context ===")
+    try:
+        # Example showing how the AI maintains context between messages
+        sequence_id = "sequence_abc123"  # Replace with actual ID
+        
+        print("Starting a progressive conversation referencing previous changes...")
+        steps = [
+            "Start with smoother transitions between clips",
+            "Keep the transitions but make the music more upbeat in the middle section",
+            "I like the music changes. Now adjust the timing of clips 3-5 to be faster paced"
+        ]
+        
+        # Send each prompt in sequence, building a conversation
+        for i, prompt in enumerate(steps):
+            print(f"\nStep {i+1}: {prompt}")
+            result = client.sequence.send_chat_prompt(
+                sequence_id=sequence_id,
+                prompt=prompt,
+                include_history=True  # This is key for maintaining context
+            )
+            
+            print(f"Prompt sent, job ID: {result.get('job_id')}")
+            
+            # In a real app, you'd wait for job completion before sending next prompt
+            # This is just to simulate the conversation flow
+            if i < len(steps) - 1:
+                print("AI is processing... (simulated)")
+                time.sleep(1)  # This is just for the example
+        
+        print("\nThis progressive conversation demonstrates how the AI maintains context")
+        print("Each prompt builds on previous ones, creating a natural editing workflow")
+    
+    except Exception as e:
+        print(f"Error in progressive conversation: {str(e)}")
 
 if __name__ == "__main__":
     main()

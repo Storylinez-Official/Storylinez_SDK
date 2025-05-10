@@ -281,6 +281,68 @@ def main():
         print("Multiple scenes edited successfully using the convenience method")
     except Exception as e:
         print(f"Error using convenience methods: {str(e)}")
+    
+    # Example 12: Using the chat-like experience with storyboards
+    print_section("Chat-like Experience with Storyboards")
+    try:
+        # Get a storyboard to work with
+        storyboard_id = "your_storyboard_id_here"  # Replace with actual ID
+        
+        # Using send_chat_prompt for a conversational interaction
+        print("Sending first chat message...")
+        chat_result = client.storyboard.send_chat_prompt(
+            storyboard_id=storyboard_id,
+            prompt="Make the narrative more emotional and focus on customer benefits",
+            include_history=True
+        )
+        
+        print(f"Prompt sent, job ID: {chat_result.get('job_id')}")
+        print("Waiting for response (this would typically be handled asynchronously in a UI)...")
+        
+        # In a real app, you'd poll for job completion or use webhooks
+        # For this example, we'll just wait a moment and then continue the conversation
+        time.sleep(2)  # This is just for the example - don't actually do this in production
+        
+        # Continue the conversation with a follow-up prompt
+        print("\nSending follow-up message based on previous response...")
+        followup_result = client.storyboard.send_chat_prompt(
+            storyboard_id=storyboard_id,
+            prompt="I like the emotional tone, now make the transitions between scenes smoother",
+            include_history=True
+        )
+        
+        print(f"Follow-up prompt sent, job ID: {followup_result.get('job_id')}")
+        
+        # Get the chat history to display the conversation
+        print("\nRetrieving conversation history...")
+        chat_history = client.storyboard.get_chat_history(
+            storyboard_id=storyboard_id,
+            limit=10
+        )
+        
+        # Display the conversation in a chat-like format
+        print("\n=== Chat Conversation ===")
+        for entry in chat_history.get("conversation", []):
+            role = entry.get("role", "unknown")
+            timestamp = entry.get("timestamp", "")
+            
+            if role == "user":
+                print(f"\n👤 USER ({timestamp}):")
+                print(f"  {entry.get('content', '')}")
+            elif role == "assistant":
+                print(f"\n🤖 AI ({timestamp}):")
+                summary = entry.get("storyboard_data_summary", {})
+                scenes = summary.get("scenes", [])
+                print(f"  Generated {summary.get('video_count', 0)} scenes:")
+                for i, scene in enumerate(scenes[:3]):  # Show first 3 scenes
+                    print(f"  - Scene {i+1}: {scene}")
+                if len(scenes) > 3:
+                    print(f"  - ... and {len(scenes) - 3} more scenes")
+        
+        print("\n=== End of Conversation ===")
+        
+    except Exception as e:
+        print(f"Error using chat-like experience: {str(e)}")
 
 if __name__ == "__main__":
     main()

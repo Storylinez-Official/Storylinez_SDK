@@ -10,6 +10,12 @@ class SequenceClient(BaseClient):
     """
     Client for interacting with Storylinez Sequence API.
     Provides methods for creating, retrieving, and managing sequences for video generation.
+    
+    This client offers a chat-like experience with the AI where you can:
+    - View previous versions of sequences
+    - Send natural language instructions as regeneration prompts
+    - Leverage conversation history for contextual regeneration
+    - Alternate between precise manual edits and AI-guided creative changes
     """
     
     def __init__(self, api_key: str, api_secret: str, base_url: str = "https://api.storylinezads.com", default_org_id: str = None):
@@ -168,7 +174,7 @@ class SequenceClient(BaseClient):
             sequence_id: ID of the sequence to regenerate (either this or project_id must be provided)
             project_id: ID of the project whose sequence to regenerate (either this or sequence_id must be provided)
             include_history: Whether to include sequence history as context for regeneration
-            regenerate_prompt: Optional prompt to guide the regeneration
+            regenerate_prompt: Custom prompt to guide regeneration with specific instructions
             
         Returns:
             Dictionary with the regeneration job details
@@ -176,10 +182,18 @@ class SequenceClient(BaseClient):
         Raises:
             ValueError: If neither sequence_id nor project_id is provided
             
-        Tips:
-            - Use regenerate_prompt to guide the AI on what to improve or change
-            - Examples: "Make transitions smoother", "Focus more on product close-ups"
-            - Setting include_history=True helps the AI understand previous attempts
+        Chat Experience Notes:
+            - This method is key to the chat-like experience, enabling you to send instructions
+              to the AI to improve your sequence through natural language prompts
+            - The regenerate_prompt is your message to the AI, guiding how it should modify
+              the sequence from its current state
+            - Setting include_history=True creates a more conversational experience as the
+              AI considers the previous interactions as context
+            - Example prompts:
+              * "Make transitions between scenes smoother and use more dynamic camera movements"
+              * "Keep my edits to clips 2-4, but make all other clips more vibrant"
+              * "Create a more dramatic feel with slower motion in the climax scene"
+            - The AI will respond with a new sequence version, advancing the conversation
         """
         if not sequence_id and not project_id:
             raise ValueError("Either sequence_id or project_id must be provided")
@@ -366,6 +380,19 @@ class SequenceClient(BaseClient):
             
         Raises:
             ValueError: If sequence_id is not provided or parameters are invalid
+            
+        Chat Experience Notes:
+            - The history represents the complete conversation between you and the AI
+            - Different history_types correspond to different types of interactions:
+              * 'prompt': Your messages/instructions to the AI (like chat messages)
+              * 'generation': AI's responses as generated sequence content
+              * 'update': Manual edits you've made (outside the AI conversation)
+              * 'selfupdate': System updates from cascade changes
+              * 'media_change': Specific media file replacements
+            - This timeline creates a full record of your creative process
+            - Use this data to build a chat-like interface showing the back-and-forth
+              between you and the AI as you refine the sequence together
+            - Manual edits can be displayed as special actions in the chat timeline
         """
         if not sequence_id:
             raise ValueError("sequence_id is required")
@@ -742,3 +769,362 @@ class SequenceClient(BaseClient):
             array_type=array_type,
             new_order=new_order
         )
+    
+    # New methods for chat-like experience
+    
+    def send_chat_prompt(
+        self,
+        sequence_id: str = None, 
+        project_id: str = None,
+        prompt: str = None,
+        include_history: bool = True,
+        wait_for_completion: bool = False,
+        polling_interval: int = 5,
+        timeout: int = 300
+    ) -> Dict:
+        """
+        Send a chat prompt to guide sequence regeneration (convenience method).
+        
+        Args:
+            sequence_id: ID of the sequence (either this or project_id must be provided)
+            project_id: ID of the project (either this or sequence_id must be provided)
+            prompt: Natural language instructions for the AI
+            include_history: Whether to include previous history as context
+            wait_for_completion: Whether to wait for the job to complete before returning
+            polling_interval: Seconds between status checks if waiting
+            timeout: Maximum seconds to wait if waiting
+            
+        Returns:
+            Dictionary with job information or completed sequence if waiting
+            
+        Raises:
+            ValueError: If required parameters are missing
+            TimeoutError: If waiting times out
+            
+        Chat Experience Notes:
+            - This is the primary method for "chatting" with the AI about your sequence
+            - Use natural language to describe the changes you want, as if talking to a human editor
+            - For better results, be specific about what you like and what you want to change
+            - The AI will consider the conversation history when include_history=True
+            - Examples of effective prompts:
+              * "Make the transitions between scenes smoother and more professional"
+              * "I like my edits to the first clip. Now adjust the audio levels to match the new visual pacing"
+              * "The sequence feels too slow. Can you make it more energetic while keeping my color grading?"
+              
+        Example:
+            ```python
+            # Start a conversation
+            result = client.send_chat_prompt(
+                sequence_id="seq_12345",
+                prompt="Make the transitions between scenes smoother"
+            )
+            
+            # Continue the conversation
+            result = client.send_chat_prompt(
+                sequence_id="seq_12345",
+                prompt="I like the smooth transitions. Now make the color grade more cinematic."
+            )
+            ```
+        """
+        if not sequence_id and not project_id:
+            raise ValueError("Either sequence_id or project_id must be provided")
+        
+        if not prompt:
+            raise ValueError("A prompt message is required")
+        
+        # Send the regeneration prompt
+        result = self.redo_sequence(
+            sequence_id=sequence_id,
+            project_id=project_id,
+            regenerate_prompt=prompt,
+            include_history=include_history
+        )
+        
+        job_id = result.get('job_id')
+        result_sequence_id = result.get('sequence_id') or sequence_id
+        
+        # If requested to wait for completion
+        if wait_for_completion and job_id and result_sequence_id:
+            start_time = datetime.now()
+            elapsed = 0
+            
+            while elapsed < timeout:
+                # Check job status by getting the sequence
+                sequence = self.get_sequence(sequence_id=result_sequence_id, include_results=True)
+                
+                # Check if job is complete
+                if sequence.get('old_job_result', {}).get('status') == 'COMPLETED':
+                    return sequence
+                
+                # Wait before checking again
+                import time
+                time.sleep(polling_interval)
+                
+                # Update elapsed time
+                elapsed = (datetime.now() - start_time).total_seconds()
+            
+            # If we get here, we timed out
+            raise TimeoutError(f"Job did not complete within {timeout} seconds")
+        
+        return result
+    
+    def get_chat_history(
+        self,
+        sequence_id: str,
+        limit: int = 20,
+        include_generations: bool = True
+    ) -> Dict:
+        """
+        Get sequence history formatted as a chat conversation.
+        
+        Args:
+            sequence_id: ID of the sequence
+            limit: Maximum number of history entries to return
+            include_generations: Whether to include AI generations (output) or just prompts
+            
+        Returns:
+            Dictionary with conversation entries formatted as a chat
+            
+        Raises:
+            ValueError: If sequence_id is not provided
+            
+        Chat Experience Notes:
+            - Returns history in a format suitable for rendering as a chat interface
+            - Each entry has a role ('user' for prompts, 'assistant' for AI responses)
+            - Entries are ordered chronologically to show the conversation flow
+            - Use this to build the chat history panel in your UI
+            - Can be displayed with user prompts on one side and AI generations on the other
+            - Manual edits can be shown as system messages or special user actions
+            - This format makes it easy to build a UI that mimics familiar chat applications
+        """
+        if not sequence_id:
+            raise ValueError("sequence_id is required")
+        
+        # Get history entries with appropriate filters
+        history_entries = []
+        
+        # Always get prompt entries (user messages)
+        prompt_history = self.get_sequence_history(
+            sequence_id=sequence_id,
+            limit=limit,
+            history_type="prompt"
+        )
+        
+        if "history" in prompt_history:
+            history_entries.extend([
+                {
+                    "role": "user",
+                    "content": entry.get("prompt_text", ""),
+                    "timestamp": entry.get("timestamp"),
+                    "type": "prompt"
+                }
+                for entry in prompt_history.get("history", [])
+            ])
+        
+        # Optionally get generation entries (AI responses)
+        if include_generations:
+            generation_history = self.get_sequence_history(
+                sequence_id=sequence_id,
+                limit=limit,
+                history_type="generation"
+            )
+            
+            if "history" in generation_history:
+                history_entries.extend([
+                    {
+                        "role": "assistant",
+                        "timestamp": entry.get("timestamp"),
+                        "type": "generation",
+                        "sequence_data_summary": self._summarize_sequence_data(entry.get("sequence_data", {}))
+                    }
+                    for entry in generation_history.get("history", [])
+                ])
+        
+        # Sort all entries by timestamp
+        history_entries.sort(key=lambda x: x.get("timestamp", ""), reverse=False)
+        
+        return {
+            "sequence_id": sequence_id,
+            "conversation": history_entries,
+            "count": len(history_entries)
+        }
+    
+    def _summarize_sequence_data(self, sequence_data: Dict) -> Dict:
+        """
+        Create a summary of sequence data for display in chat history.
+        
+        Args:
+            sequence_data: The full sequence data
+            
+        Returns:
+            Dictionary with summarized information
+        """
+        summary = {}
+        
+        # Count clips and total duration
+        clips = sequence_data.get("clips", [])
+        summary["clip_count"] = len(clips)
+        
+        # Calculate approximate total duration
+        total_duration = 0
+        for clip in clips:
+            if "in" in clip and "out" in clip:
+                clip_duration = clip.get("out", 0) - clip.get("in", 0)
+                total_duration += clip_duration
+        
+        summary["approximate_duration"] = round(total_duration, 2)
+        
+        # Count audio tracks
+        audios = sequence_data.get("audios", [])
+        summary["audio_track_count"] = len(audios)
+        
+        # Check if sequence has voiceover
+        summary["has_voiceover"] = "voiceover" in sequence_data and bool(sequence_data.get("voiceover"))
+        
+        return summary
+    
+    def restore_version(
+        self,
+        sequence_id: str,
+        history_timestamp: str,
+        apply_as_edit: bool = True,
+        regenerate: bool = False,
+        regenerate_prompt: str = None
+    ) -> Dict:
+        """
+        Restore a previous version of a sequence from history.
+        
+        Args:
+            sequence_id: ID of the sequence
+            history_timestamp: Timestamp of the history entry to restore (from get_sequence_history)
+            apply_as_edit: Whether to apply as an edit or directly regenerate
+            regenerate: Whether to regenerate the sequence after restoring
+            regenerate_prompt: Optional prompt to include with regeneration
+            
+        Returns:
+            Dictionary with the update or regeneration result
+            
+        Raises:
+            ValueError: If required parameters are missing
+            
+        Chat Experience Notes:
+            - This method acts like a "restore" button in a chat interface
+            - Allows you to go back to any point in the conversation history
+            - You can either restore exactly as is (apply_as_edit=True, regenerate=False)
+            - Or use it as a starting point for a new branch of conversation
+              by adding a new prompt (regenerate=True, regenerate_prompt="New instructions")
+            - This is useful for exploring different creative directions from a common starting point
+            - In a chat UI, this could be implemented as a "Restore this version" button next to 
+              each history entry
+        """
+        if not sequence_id or not history_timestamp:
+            raise ValueError("Both sequence_id and history_timestamp are required")
+        
+        # Get full history to find the specific entry
+        history_response = self.get_sequence_history(
+            sequence_id=sequence_id,
+            limit=100  # Fetch a large number to increase chances of finding the entry
+        )
+        
+        target_entry = None
+        for entry in history_response.get("history", []):
+            if entry.get("timestamp") == history_timestamp and entry.get("history_type") in ["generation", "update"]:
+                target_entry = entry
+                break
+                
+        if not target_entry:
+            raise ValueError(f"No history entry found with timestamp {history_timestamp}")
+        
+        sequence_data = target_entry.get("sequence_data")
+        if not sequence_data:
+            raise ValueError("Selected history entry does not contain sequence data")
+            
+        if apply_as_edit:
+            # Apply as an edit to the sequence
+            result = self.update_sequence_settings(
+                sequence_id=sequence_id,
+                edited_sequence=sequence_data
+            )
+            
+            if regenerate:
+                return self.redo_sequence(
+                    sequence_id=sequence_id,
+                    regenerate_prompt=regenerate_prompt,
+                    include_history=True
+                )
+                
+            return result
+        else:
+            # Apply by directly regenerating with this data as context
+            prompt = "Restore this previous version" if not regenerate_prompt else regenerate_prompt
+            
+            # Update with the sequence data first
+            self.update_sequence_settings(
+                sequence_id=sequence_id,
+                edited_sequence=sequence_data
+            )
+            
+            # Then regenerate
+            return self.redo_sequence(
+                sequence_id=sequence_id, 
+                regenerate_prompt=prompt,
+                include_history=True
+            )
+    
+    def combine_manual_and_ai_edits(
+        self,
+        sequence_id: str,
+        manual_edits: Dict,
+        ai_prompt: str = "Refine this sequence while keeping my manual edits intact",
+        wait_for_completion: bool = False
+    ) -> Dict:
+        """
+        Apply manual edits to a sequence and then use AI to further improve it.
+        
+        Args:
+            sequence_id: ID of the sequence
+            manual_edits: Dictionary with manual edit operations to perform
+            ai_prompt: Natural language prompt guiding the AI about your edits
+            wait_for_completion: Whether to wait for the AI job to complete
+            
+        Returns:
+            Dictionary with the operation result
+            
+        Raises:
+            ValueError: If required parameters are missing
+            
+        Chat Experience Notes:
+            - This method exemplifies the collaborative workflow between human and AI
+            - First applies your precise manual edits (technical changes)
+            - Then lets the AI make creative improvements while respecting your edits
+            - The ai_prompt should reference your manual edits to guide the AI
+            - Example workflow:
+              1. Make specific timing adjustments with manual_edits
+              2. Ask AI to "improve the overall pacing while keeping my timing adjustments"
+              3. Review the result and iterate again if needed
+            - This hybrid approach combines the precision of manual editing with the
+              creative power of AI-guided regeneration
+        """
+        if not sequence_id:
+            raise ValueError("sequence_id is required")
+            
+        if not manual_edits or not isinstance(manual_edits, dict):
+            raise ValueError("manual_edits must be a valid dictionary of edit operations")
+            
+        # First apply manual edits
+        # Here we're simplifying by just using update_sequence_settings
+        # In a real implementation, this might involve multiple specific edit operations
+        result = self.update_sequence_settings(
+            sequence_id=sequence_id,
+            edited_sequence=manual_edits
+        )
+        
+        # Then use AI to refine while keeping edits
+        regeneration_result = self.send_chat_prompt(
+            sequence_id=sequence_id,
+            prompt=ai_prompt,
+            include_history=True,
+            wait_for_completion=wait_for_completion
+        )
+        
+        return regeneration_result

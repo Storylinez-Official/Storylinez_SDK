@@ -10,6 +10,12 @@ class StoryboardClient(BaseClient):
     """
     Client for interacting with Storylinez Storyboard API.
     Provides methods for creating and managing storyboards, editing storyboard content, and retrieving history.
+    
+    This client supports a chat-like experience with the AI where you can:
+    - View previous versions of storyboards
+    - Send natural language instructions as regeneration prompts
+    - Leverage conversation history for contextual regeneration
+    - Alternate between manual edits and AI-guided changes
     """
     
     def __init__(self, api_key: str, api_secret: str, base_url: str = "https://api.storylinez.com", default_org_id: str = None):
@@ -271,8 +277,8 @@ class StoryboardClient(BaseClient):
             requests.exceptions.RequestException: If the API request fails
             
         Note:
-            After updating values, the storyboard will be marked as 'stale' and will need to be 
-            regenerated using the redo_storyboard method to incorporate the updates.
+            After updating values, the storyboard will be marked as 'stale' and will need to 
+            be regenerated using the redo_storyboard method to incorporate the updates.
         """
         if not storyboard_id and not project_id:
             raise ValueError("Either storyboard_id or project_id must be provided")
@@ -368,7 +374,8 @@ class StoryboardClient(BaseClient):
     def redo_storyboard(
         self, 
         storyboard_id: Optional[str] = None, 
-        project_id: Optional[str] = None, 
+        project_id: Optional[str] = None,
+        regeneration_prompt: Optional[str] = None,
         include_history: bool = False,
         **kwargs
     ) -> Dict:
@@ -378,7 +385,8 @@ class StoryboardClient(BaseClient):
         Args:
             storyboard_id: ID of the storyboard to redo (either this or project_id must be provided)
             project_id: ID of the project whose storyboard to redo (either this or storyboard_id must be provided)
-            include_history: Whether to include history as context for regeneration (provides AI with more context)
+            regeneration_prompt: Custom prompt to guide regeneration with specific instructions (chat-like guidance)
+            include_history: Whether to include history as context for regeneration (provides AI with conversation history)
             **kwargs: Additional parameters to pass to the API
             
         Returns:
@@ -388,9 +396,18 @@ class StoryboardClient(BaseClient):
             ValueError: If neither storyboard_id nor project_id is provided
             requests.exceptions.RequestException: If the API request fails
             
-        Note:
-            This method will clear any edited_storyboard and regeneration_prompt values,
-            but will use them for context in the new generation before clearing them.
+        Chat Experience Notes:
+            - This method is central to the chat-like experience, allowing you to send natural
+              language instructions to the AI to refine your storyboard iteratively.
+            - The regeneration_prompt is like your chat message to the AI, guiding how it 
+              should modify the storyboard from its current state.
+            - Setting include_history=True makes the experience more conversational as the AI 
+              will consider previous prompts and changes as context.
+            - Example prompts:
+              * "Make the narrative more emotional and focus on customer benefits"
+              * "Keep the first scene but completely redo the rest"
+              * "Change the background music to something more upbeat"
+            - The AI will respond with a new storyboard version, creating a turn in the conversation.
         """
         if not storyboard_id and not project_id:
             raise ValueError("Either storyboard_id or project_id must be provided")
@@ -401,6 +418,8 @@ class StoryboardClient(BaseClient):
             data["storyboard_id"] = storyboard_id
         if project_id:
             data["project_id"] = project_id
+        if regeneration_prompt:
+            data["regeneration_prompt"] = regeneration_prompt
             
         # Add any additional parameters from kwargs
         for key, value in kwargs.items():
@@ -408,8 +427,6 @@ class StoryboardClient(BaseClient):
                 data[key] = value
             
         return self._make_request("POST", f"{self.storyboard_url}/redo", json_data=data)
-    
-    # Storyboard Content Editing
     
     def reorder_storyboard_items(
         self, 
@@ -618,7 +635,7 @@ class StoryboardClient(BaseClient):
             if key not in data:
                 data[key] = value
             
-        return self._make_request("PUT", f"{self.storyboard_url}/change_media", json_data=data)
+        return self._.make_request("PUT", f"{self.storyboard_url}/change_media", json_data=data)
     
     # Storyboard History and Media
     
@@ -649,8 +666,17 @@ class StoryboardClient(BaseClient):
             ValueError: If parameters are invalid
             requests.exceptions.RequestException: If the API request fails
             
-        Note:
-            History entries are returned in reverse chronological order (newest first).
+        Chat Experience Notes:
+            - History represents the complete conversation between you and the AI
+            - Different history_types correspond to different types of interactions:
+              * 'prompt': Your messages/instructions to the AI (like chat messages)
+              * 'generation': AI's responses as generated storyboard content
+              * 'update': Manual edits you've made (outside the AI conversation)
+              * 'selfupdate': System updates from cascade changes
+              * 'media_change': Specific media file replacements
+            - This timeline creates a full record of your creative process
+            - The history can be displayed as a chat interface with alternating user
+              prompts and AI responses, plus annotations for manual changes
         """
         if not storyboard_id:
             raise ValueError("storyboard_id is required")
@@ -951,3 +977,290 @@ class StoryboardClient(BaseClient):
             storyboard_id=storyboard_id,
             edited_storyboard=edited_data
         )
+    
+    # New convenience methods for chat-like experience
+    
+    def send_chat_prompt(
+        self, 
+        storyboard_id: Optional[str] = None, 
+        project_id: Optional[str] = None,
+        prompt: str = None,
+        include_history: bool = True,
+        wait_for_completion: bool = False,
+        polling_interval: int = 5, 
+        timeout: int = 300
+    ) -> Dict:
+        """
+        Send a chat prompt to guide storyboard regeneration (convenience method).
+        
+        Args:
+            storyboard_id: ID of the storyboard to regenerate (either this or project_id must be provided)
+            project_id: ID of the project whose storyboard to regenerate (either this or storyboard_id must be provided)
+            prompt: Natural language instructions for the AI
+            include_history: Whether to include previous history for more context (recommended for chat experience)
+            wait_for_completion: Whether to wait for the generation job to complete
+            polling_interval: Seconds between status checks if waiting for completion
+            timeout: Maximum seconds to wait if waiting for completion
+            
+        Returns:
+            Dictionary with job information, or completed job if wait_for_completion=True
+            
+        Raises:
+            ValueError: If required parameters are missing
+            TimeoutError: If the job doesn't complete within the timeout period (when wait_for_completion=True)
+            requests.exceptions.RequestException: If the API request fails
+            
+        Chat Experience Notes:
+            - This is the primary method for "chatting" with the AI about your storyboard
+            - Use natural language to describe the changes you want, as if talking to a collaborator
+            - For better results, be specific about what you like and what you want to change
+            - The AI will consider the conversation history when include_history=True
+            - Examples of effective prompts:
+              * "I like the narrative flow, but make the intro more energetic"
+              * "Keep the emotional tone but focus more on product benefits in the second half"
+              * "The pacing feels off. Can you make it build more gradually to a climax?"
+              
+        Example:
+            ```python
+            # Start a conversation
+            result = client.send_chat_prompt(
+                storyboard_id="sb_12345",
+                prompt="Make the narrative more emotional and focus on customer benefits"
+            )
+            
+            # Continue the conversation
+            result = client.send_chat_prompt(
+                storyboard_id="sb_12345",
+                prompt="I like the emotional tone, now make the scenes flow better together"
+            )
+            ```
+        """
+        if not storyboard_id and not project_id:
+            raise ValueError("Either storyboard_id or project_id must be provided")
+            
+        if not prompt:
+            raise ValueError("A prompt message is required")
+            
+        # Send the regeneration prompt
+        result = self.redo_storyboard(
+            storyboard_id=storyboard_id,
+            project_id=project_id,
+            regeneration_prompt=prompt,
+            include_history=include_history
+        )
+        
+        # If we should wait for completion, poll the job status
+        if wait_for_completion and "job_id" in result:
+            job_id = result.get("job_id")
+            job_result = self.wait_for_generation_complete(
+                job_id=job_id,
+                polling_interval=polling_interval,
+                timeout=timeout
+            )
+            
+            # Fetch the updated storyboard
+            storyboard_id = result.get("storyboard_id")
+            if storyboard_id:
+                return self.get_storyboard(storyboard_id=storyboard_id, include_results=True)
+            
+        return result
+    
+    def get_chat_history(
+        self, 
+        storyboard_id: str,
+        limit: int = 20,
+        include_generations: bool = True
+    ) -> Dict:
+        """
+        Get storyboard history formatted as a chat conversation.
+        
+        Args:
+            storyboard_id: ID of the storyboard
+            limit: Maximum number of history entries to return
+            include_generations: Whether to include AI generations (output) or just prompts
+            
+        Returns:
+            Dictionary with conversation entries formatted as a chat
+            
+        Raises:
+            ValueError: If storyboard_id is not provided
+            requests.exceptions.RequestException: If the API request fails
+            
+        Chat Experience Notes:
+            - Returns history in a format suitable for rendering as a chat interface
+            - Each entry has a role ('user' for prompts, 'assistant' for AI responses)
+            - Entries are ordered chronologically to show the conversation flow
+            - Use this to build the chat history panel in your UI
+            - Can be displayed with user prompts on one side and AI generations on the other
+            - Manual edits can be shown as system messages or special user actions
+        """
+        if not storyboard_id:
+            raise ValueError("storyboard_id is required")
+            
+        # Get history entries with appropriate filters
+        history_entries = []
+        
+        # Always get prompt entries (user messages)
+        prompt_history = self.get_storyboard_history(
+            storyboard_id=storyboard_id,
+            limit=limit,
+            history_type="prompt"
+        )
+        
+        if "history" in prompt_history:
+            history_entries.extend([
+                {
+                    "role": "user",
+                    "content": entry.get("prompt_text", ""),
+                    "timestamp": entry.get("timestamp"),
+                    "type": "prompt"
+                }
+                for entry in prompt_history.get("history", [])
+            ])
+        
+        # Optionally get generation entries (AI responses)
+        if include_generations:
+            generation_history = self.get_storyboard_history(
+                storyboard_id=storyboard_id,
+                limit=limit,
+                history_type="generation"
+            )
+            
+            if "history" in generation_history:
+                history_entries.extend([
+                    {
+                        "role": "assistant",
+                        "timestamp": entry.get("timestamp"),
+                        "type": "generation",
+                        "storyboard_data_summary": self._summarize_storyboard_data(entry.get("storyboard_data", {}))
+                    }
+                    for entry in generation_history.get("history", [])
+                ])
+        
+        # Sort all entries by timestamp
+        history_entries.sort(key=lambda x: x.get("timestamp", ""), reverse=False)
+        
+        return {
+            "storyboard_id": storyboard_id,
+            "conversation": history_entries,
+            "count": len(history_entries)
+        }
+    
+    def _summarize_storyboard_data(self, storyboard_data: Dict) -> Dict:
+        """
+        Create a summary of storyboard data for display in chat history.
+        
+        Args:
+            storyboard_data: The full storyboard data
+            
+        Returns:
+            Dictionary with summarized information
+        """
+        summary = {}
+        
+        # Count videos
+        videos = storyboard_data.get("videos", [])
+        summary["video_count"] = len(videos)
+        
+        # Get scene names as a list
+        summary["scenes"] = [
+            video.get("scene", f"Scene {i+1}") 
+            for i, video in enumerate(videos)
+        ]
+        
+        # Include voiceover transcription if available
+        voiceover = storyboard_data.get("voiceover", {})
+        if voiceover and "transcription" in voiceover:
+            summary["transcription"] = voiceover.get("transcription")
+        
+        # Count background music tracks
+        background_music = storyboard_data.get("background_music", [])
+        summary["background_music_count"] = len(background_music)
+        
+        return summary
+    
+    def restore_version(
+        self,
+        storyboard_id: str,
+        history_timestamp: str,
+        apply_as_edit: bool = True,
+        regenerate: bool = False,
+        regeneration_prompt: str = None
+    ) -> Dict:
+        """
+        Restore a previous version of a storyboard from history.
+        
+        Args:
+            storyboard_id: ID of the storyboard
+            history_timestamp: Timestamp of the history entry to restore (from get_storyboard_history)
+            apply_as_edit: Whether to apply as an edit or directly regenerate
+            regenerate: Whether to regenerate the storyboard after restoring
+            regeneration_prompt: Optional prompt to include with regeneration
+            
+        Returns:
+            Dictionary with the update or regeneration result
+            
+        Raises:
+            ValueError: If required parameters are missing
+            
+        Chat Experience Notes:
+            - This method acts like the "restore" button in a chat interface
+            - Allows you to go back to any point in the conversation history
+            - You can either restore exactly as is (apply_as_edit=True, regenerate=False)
+            - Or use it as a starting point for a new branch of conversation
+              by adding a new prompt (regenerate=True, regeneration_prompt="New instructions")
+            - This is useful for exploring different creative directions from a common starting point
+        """
+        if not storyboard_id or not history_timestamp:
+            raise ValueError("Both storyboard_id and history_timestamp are required")
+        
+        # Get full history to find the specific entry
+        history_response = self.get_storyboard_history(
+            storyboard_id=storyboard_id,
+            limit=100  # Fetch a large number to increase chances of finding the entry
+        )
+        
+        target_entry = None
+        for entry in history_response.get("history", []):
+            if entry.get("timestamp") == history_timestamp and entry.get("history_type") in ["generation", "update"]:
+                target_entry = entry
+                break
+                
+        if not target_entry:
+            raise ValueError(f"No history entry found with timestamp {history_timestamp}")
+        
+        storyboard_data = target_entry.get("storyboard_data")
+        if not storyboard_data:
+            raise ValueError("Selected history entry does not contain storyboard data")
+            
+        if apply_as_edit:
+            # Apply as an edit to the storyboard
+            result = self.update_storyboard_values(
+                storyboard_id=storyboard_id,
+                edited_storyboard=storyboard_data
+            )
+            
+            if regenerate:
+                return self.redo_storyboard(
+                    storyboard_id=storyboard_id,
+                    regeneration_prompt=regeneration_prompt,
+                    include_history=True
+                )
+                
+            return result
+        else:
+            # Apply by directly regenerating with this data as context
+            prompt = "Restore this previous version" if not regeneration_prompt else regeneration_prompt
+            
+            # Update with the storyboard data first
+            self.update_storyboard_values(
+                storyboard_id=storyboard_id,
+                edited_storyboard=storyboard_data
+            )
+            
+            # Then regenerate
+            return self.redo_storyboard(
+                storyboard_id=storyboard_id, 
+                regeneration_prompt=prompt,
+                include_history=True
+            )
