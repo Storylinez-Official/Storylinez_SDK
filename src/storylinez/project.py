@@ -896,6 +896,41 @@ class ProjectClient(BaseClient):
         
         return self._make_request("POST", f"{self.project_url}/files/add", params=params, json_data=data)
     
+    def add_associated_files_bulk(self, project_id: str, file_ids: List[str]) -> Dict:
+        """
+        Add multiple files to a project in a single operation.
+        
+        Args:
+            project_id: ID of the project
+            file_ids: List of file IDs to add to the project
+            
+        Returns:
+            Dictionary with the operation results including successful and failed additions
+            
+        Raises:
+            ValueError: If project_id is missing or file_ids is not a list
+            
+        Notes:
+            - All files must belong to the same organization as the project
+            - Files that already exist in the project will be skipped
+            - Returns detailed information about which files were added and which failed
+        """
+        if not project_id:
+            raise ValueError("project_id is required")
+        
+        if not file_ids or not isinstance(file_ids, list):
+            raise ValueError("file_ids must be a non-empty list")
+        
+        data = {
+            "file_ids": file_ids
+        }
+        
+        params = {
+            "project_id": project_id
+        }
+        
+        return self._make_request("POST", f"{self.project_url}/files/add_bulk", params=params, json_data=data)
+    
     def remove_associated_file(self, project_id: str, file_id: str) -> Dict:
         """
         Remove a file from a project.
@@ -968,6 +1003,46 @@ class ProjectClient(BaseClient):
         }
         
         return self._make_request("POST", f"{self.project_url}/stock-files/add", params=params, json_data=data)
+    
+    def add_stock_files_bulk(self, project_id: str, stock_ids: List[str], media_type: str) -> Dict:
+        """
+        Add multiple stock media files to a project in a single operation.
+        
+        Args:
+            project_id: ID of the project
+            stock_ids: List of stock media IDs to add to the project
+            media_type: Type of media ('videos', 'audios', or 'images')
+            
+        Returns:
+            Dictionary with the operation results including successful and failed additions
+            
+        Raises:
+            ValueError: If parameters are invalid or missing
+            
+        Notes:
+            - Stock IDs that don't exist or are already in the project will be reported in the failures
+            - Media type must be plural form with 's' (videos, audios, images)
+            - This method is more efficient than adding stock files individually when adding multiple files
+        """
+        if not project_id:
+            raise ValueError("project_id is required")
+        
+        if not stock_ids or not isinstance(stock_ids, list):
+            raise ValueError("stock_ids must be a non-empty list")
+        
+        if not media_type or media_type not in ['videos', 'audios', 'images']:
+            raise ValueError("media_type must be one of: 'videos', 'audios', 'images'")
+        
+        data = {
+            "stock_ids": stock_ids,
+            "media_type": media_type
+        }
+        
+        params = {
+            "project_id": project_id
+        }
+        
+        return self._make_request("POST", f"{self.project_url}/stock-files/add_bulk", params=params, json_data=data)
     
     def remove_stock_file(self, project_id: str, stock_id: str, media_type: str) -> Dict:
         """
@@ -1072,6 +1147,51 @@ class ProjectClient(BaseClient):
         }
         
         return self._make_request("POST", f"{self.project_url}/voiceovers/add", params=params, json_data=data)
+    
+    def add_voiceovers_bulk(self, project_id: str, voiceovers: List[Dict], selected_index: int = 0) -> Dict:
+        """
+        Process multiple audio files as potential voiceovers and select one as active.
+        
+        Args:
+            project_id: ID of the project
+            voiceovers: List of voiceover objects, each containing file_id and optional voice_name
+            selected_index: Index of the voiceover to select as active (0-based, defaults to the first valid voiceover)
+            
+        Returns:
+            Dictionary with the operation results including successful and failed additions and the selected voiceover
+            
+        Raises:
+            ValueError: If parameters are invalid or missing
+            
+        Notes:
+            - Each voiceover object should have a 'file_id' key and optional 'voice_name' key
+            - Only one voiceover will be set as active for the project based on selected_index
+            - Failed voiceovers (non-audio files or missing files) are reported in the results
+            - Use this method to efficiently test multiple voiceover options in a single API call
+        """
+        if not project_id:
+            raise ValueError("project_id is required")
+        
+        if not voiceovers or not isinstance(voiceovers, list):
+            raise ValueError("voiceovers must be a non-empty list")
+    
+        # Validate all voiceover entries have file_id
+        for i, voiceover in enumerate(voiceovers):
+            if not isinstance(voiceover, dict):
+                raise ValueError(f"Voiceover at index {i} must be a dictionary")
+            if 'file_id' not in voiceover:
+                raise ValueError(f"Voiceover at index {i} is missing 'file_id'")
+    
+        data = {
+            "voiceovers": voiceovers,
+            "selected_index": selected_index
+        }
+        
+        params = {
+            "project_id": project_id
+        }
+        
+        return self._make_request("POST", f"{self.project_url}/voiceovers/add_bulk", params=params, json_data=data)
     
     def remove_voiceover(self, project_id: str) -> Dict:
         """

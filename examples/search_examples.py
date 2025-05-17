@@ -87,6 +87,34 @@ def main():
     for item in combined_results.get('results', [])[:3]:
         print(f"- {item.get('filename')} ({item.get('media_type')})")
         print(f"  * {item.get('summary', '')[:100]}...")
+        
+        # Show match details if available
+        match_details = item.get('match_details', {})
+        if match_details:
+            print("  * Match details:")
+            # Show summary matches
+            if 'summary' in match_details:
+                for match in match_details['summary'][:1]:  # Show first match only
+                    print(f"    - In summary: \"{match.get('context', '')}\"")
+            
+            # Show tag matches
+            if 'tags' in match_details:
+                matched_tags = [m.get('text') for m in match_details['tags'][:3]]
+                if matched_tags:
+                    print(f"    - In tags: {', '.join(matched_tags)}")
+            
+            # Show media-specific matches
+            if item.get('media_type') == 'video' and 'video_scenes' in match_details:
+                for match in match_details['video_scenes'][:1]:
+                    print(f"    - In scene: \"{match.get('context', '')}\"")
+            
+            elif item.get('media_type') == 'audio' and 'audio_transcription' in match_details:
+                for match in match_details['audio_transcription'][:1]:
+                    print(f"    - In transcription: \"{match.get('context', '')}\"")
+            
+            elif item.get('media_type') == 'image' and 'image_ocr' in match_details:
+                for match in match_details['image_ocr'][:1]:
+                    print(f"    - In image text: \"{match.get('context', '')}\"")
     
     # Example 6: Search by tags across all media
     print("\n=== Searching by Tags ===")

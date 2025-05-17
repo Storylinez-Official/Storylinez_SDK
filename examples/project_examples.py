@@ -145,6 +145,122 @@ def main():
         print(f"Created project with ID: {combined_project.get('project', {}).get('project_id')}")
     except Exception as e:
         print(f"Error with convenience method: {str(e)}")
+    
+    # Example 10: Adding Multiple Files to a Project
+    print("\n=== Adding Multiple Files to a Project ===")
+    try:
+        # First, let's create or get some file IDs
+        file_ids = []
+        
+        # Upload multiple files (or use existing ones)
+        for file_path in ["path/to/logo.png", "path/to/background.jpg", "path/to/audio.mp3"]:
+            try:
+                upload_result = client.storage.upload_file(
+                    file_path=file_path,
+                    folder_path="/bulk_demo"
+                )
+                file_ids.append(upload_result.get("file", {}).get("file_id"))
+            except FileNotFoundError:
+                # In a real example, you'd handle this better
+                print(f"File {file_path} not found, using placeholder")
+        
+        # If we couldn't upload real files, use some example IDs
+        if not file_ids:
+            file_ids = ["file_id_1", "file_id_2", "file_id_3"]  # Example IDs - would fail in actual usage
+        
+        # Add files in bulk
+        bulk_result = client.project.add_associated_files_bulk(
+            project_id=project_id,
+            file_ids=file_ids
+        )
+        
+        print(f"Added {len(bulk_result.get('results', {}).get('successful', []))} files successfully")
+        print(f"Failed to add {len(bulk_result.get('results', {}).get('failed', []))} files")
+        
+        # Show failure reasons if any
+        if bulk_result.get('results', {}).get('failed'):
+            print("Failures:")
+            for failure in bulk_result.get('results', {}).get('failed'):
+                print(f"- {failure.get('file_id')}: {failure.get('reason')}")
+        
+    except Exception as e:
+        print(f"Error with bulk file operations: {str(e)}")
+
+    # Example 11: Adding Multiple Stock Media Files
+    print("\n=== Adding Multiple Stock Media Files ===")
+    try:
+        # Search for multiple stock videos
+        stock_results = client.stock.search(
+            queries=["business presentation", "technology"],
+            collections=["videos"],
+            num_results_videos=3
+        )
+        
+        if stock_results.get('videos'):
+            # Extract stock IDs from results
+            stock_ids = [video.get('stock_id') or str(video.get('_id')) 
+                         for video in stock_results['videos'][:3]]
+            
+            # Add stock videos in bulk
+            bulk_stock_result = client.project.add_stock_files_bulk(
+                project_id=project_id,
+                stock_ids=stock_ids,
+                media_type="videos"
+            )
+            
+            print(f"Added {len(bulk_stock_result.get('results', {}).get('successful', []))} stock videos")
+            print(f"Failed to add {len(bulk_stock_result.get('results', {}).get('failed', []))} stock videos")
+            
+    except Exception as e:
+        print(f"Error with bulk stock operations: {str(e)}")
+
+    # Example 12: Processing Multiple Voiceovers
+    print("\n=== Processing Multiple Voiceovers ===")
+    try:
+        # Let's assume we have some audio file IDs
+        audio_files = []
+        
+        # Upload or use existing audio files
+        for audio_path in ["path/to/narration1.mp3", "path/to/narration2.mp3"]:
+            try:
+                upload_result = client.storage.upload_file(
+                    file_path=audio_path,
+                    folder_path="/voiceovers"
+                )
+                audio_files.append({
+                    "file_id": upload_result.get("file", {}).get("file_id"),
+                    "voice_name": f"Narration from {os.path.basename(audio_path)}"
+                })
+            except FileNotFoundError:
+                # In a real example, you'd handle this better
+                print(f"File {audio_path} not found, using placeholder")
+        
+        # If we couldn't upload real files, use example voiceovers
+        if not audio_files:
+            audio_files = [
+                {"file_id": "audio_file_id_1", "voice_name": "Male Narrator"},
+                {"file_id": "audio_file_id_2", "voice_name": "Female Narrator"}
+            ]  # Example IDs - would fail in actual usage
+        
+        # Process voiceovers in bulk and select the second one (if available)
+        selected_index = 1 if len(audio_files) > 1 else 0
+        
+        voiceover_result = client.project.add_voiceovers_bulk(
+            project_id=project_id,
+            voiceovers=audio_files,
+            selected_index=selected_index
+        )
+        
+        print(f"Processed {len(voiceover_result.get('results', {}).get('successful', []))} voiceovers")
+        print(f"Failed {len(voiceover_result.get('results', {}).get('failed', []))} voiceovers")
+        
+        # Show which voiceover was selected
+        selected = voiceover_result.get('results', {}).get('selected', {})
+        if selected:
+            print(f"Selected voiceover: {selected.get('voice_name')}")
+        
+    except Exception as e:
+        print(f"Error with bulk voiceover operations: {str(e)}")
 
 if __name__ == "__main__":
     main()

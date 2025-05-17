@@ -290,12 +290,14 @@ class SearchClient(BaseClient):
             **kwargs: Additional parameters to pass to the API
             
         Returns:
-            Dictionary with search results and pagination info
+            Dictionary with search results and pagination info. Results include enhanced 'match_details' 
+            showing exactly where and how each file matched the query, including context and positions.
             
         Tips:
             - This is the most powerful search method that works across all media types
             - Use natural language queries like "business meeting with presentation slides"
             - Results will be ranked by relevance across videos, images, and audio
+            - Each result includes match_details showing where the query matched (summary, tags, transcriptions, etc.)
         """
         if not query:
             raise ValueError("query cannot be empty")
