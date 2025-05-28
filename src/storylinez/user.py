@@ -7,6 +7,27 @@ class UserClient(BaseClient):
     """
     Client for interacting with Storylinez User API.
     Provides methods for accessing user profiles, storage information, and subscription details.
+    
+    Examples:
+        # Initialize the client
+        user_client = UserClient(api_key="your_api_key", api_secret="your_secret")
+        
+        # Get current user profile
+        current_user = user_client.get_current_user()
+        
+        # Get a specific user's public profile
+        user_profile = user_client.get_user("user_12345")
+        
+        # Get multiple users efficiently in batch
+        user_ids = ["user_12345", "user_67890", "user_abcdef"]
+        batch_result = user_client.get_users_batch(user_ids)
+        user_data = batch_result['data']  # Dictionary keyed by user ID
+        
+        # Get storage usage for an organization
+        storage = user_client.get_user_storage(org_id="org_12345")
+        
+        # Get subscription details
+        subscription = user_client.get_subscription(org_id="org_12345")
     """
     
     def __init__(self, api_key: str, api_secret: str, base_url: str = "https://api.storylinezads.com", default_org_id: str = None):
@@ -74,8 +95,7 @@ class UserClient(BaseClient):
         Raises:
             ValueError: If user_id is empty or doesn't start with 'user_'
             requests.RequestException: If the API call fails
-        """
-        # Validate user_id format
+        """        # Validate user_id format
         if not user_id:
             raise ValueError("User ID cannot be empty")
         if not user_id.startswith('user_'):
@@ -88,6 +108,73 @@ class UserClient(BaseClient):
             return response
         except requests.RequestException as e:
             self._handle_request_error(e, f"Failed to retrieve user profile for {user_id}")
+    
+    def get_users_batch(self, user_ids: List[str]) -> Dict:
+        """
+        Get information about multiple users in a single request.
+        This is more efficient than making individual calls to get_user() when you need
+        to fetch data for multiple users.
+        
+        Args:
+            user_ids: List of user IDs to retrieve (maximum 50 users per request)
+            
+        Returns:
+            Dictionary with user data keyed by user ID:
+            - success: Boolean indicating if the overall request was successful
+            - data: Dictionary mapping user IDs to their respective user data or error information
+                - {user_id}: User data object or error object for each requested user
+                    - For successful responses:
+                        - id: User ID
+                        - username: Username (if set)
+                        - first_name: First name
+                        - last_name: Last name
+                        - image_url: Profile image URL
+                        - public_metadata: Public metadata
+                    - For error responses:
+                        - error: Error message
+                        - success: False
+            
+        Raises:
+            ValueError: If user_ids is empty, contains invalid IDs, or exceeds the 50-user limit
+            requests.RequestException: If the API call fails
+        """
+        # Validate input parameters
+        if not user_ids:
+            raise ValueError("User IDs list cannot be empty")
+        
+        if not isinstance(user_ids, list):
+            raise ValueError("User IDs must be provided as a list")
+        
+        if len(user_ids) > 50:
+            raise ValueError("Maximum of 50 users can be fetched in a single request")
+        
+        # Validate each user_id format
+        for user_id in user_ids:
+            if not user_id:
+                raise ValueError("User ID cannot be empty")
+            if not isinstance(user_id, str):
+                raise ValueError("All user IDs must be strings")
+            if not user_id.startswith('user_'):
+                raise ValueError(f"User ID '{user_id}' must start with 'user_'")
+        
+        # Remove duplicates while preserving order
+        unique_user_ids = list(dict.fromkeys(user_ids))
+        
+        request_data = {"user_ids": unique_user_ids}
+        
+        try:
+            response = self._make_request(
+                "POST", 
+                f"{self.user_url}/users/batch", 
+                json=request_data
+            )
+            
+            # The API returns the full response structure, so we return it as-is
+            # Users can access response['data'] to get the user data dictionary
+            return response
+            
+        except requests.RequestException as e:
+            self._handle_request_error(e, f"Failed to retrieve batch user profiles for {len(unique_user_ids)} users")
     
     # Storage Methods
     

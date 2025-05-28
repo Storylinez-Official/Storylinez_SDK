@@ -178,8 +178,7 @@ def main():
         print(f"Found/created default company: {default_company.get('company_name')}")
     except Exception as e:
         print(f"Error with default company: {str(e)}")
-    
-    # Example 9: Get available fonts
+      # Example 9: Get available fonts
     print("\n=== Getting Available Fonts ===")
     try:
         fonts = client.brand.get_fonts()
@@ -192,6 +191,105 @@ def main():
             print(f"...and {len(font_list) - 5} more")
     except Exception as e:
         print(f"Error fetching fonts: {str(e)}")
+    
+    # Example 10: Brand Interactions - Like/Dislike functionality
+    if public_brands.get('public_brands'):
+        print("\n=== Brand Interactions - Like/Dislike Functionality ===")
+        # Use the first public brand for interaction examples
+        test_brand = public_brands['public_brands'][0]
+        brand_id = test_brand.get('brand_id')
+        brand_name = test_brand.get('name', 'Unknown Brand')
+        
+        try:
+            print(f"Testing interactions with brand: {brand_name}")
+            
+            # Like the brand
+            print("Liking the brand...")
+            like_result = client.brand.like(brand_id=brand_id)
+            print(f"Like result: {like_result.get('message')}")
+            print(f"Interaction type: {like_result.get('interaction_type')}")
+            
+            # Change to dislike
+            print("\nChanging to dislike...")
+            dislike_result = client.brand.dislike(brand_id=brand_id)
+            print(f"Dislike result: {dislike_result.get('message')}")
+            print(f"Interaction type: {dislike_result.get('interaction_type')}")
+            
+            # Remove interaction
+            print("\nRemoving interaction...")
+            remove_result = client.brand.remove_interaction(brand_id=brand_id)
+            print(f"Remove result: {remove_result.get('message')}")
+            print(f"Interaction type: {remove_result.get('interaction_type')}")
+            
+        except Exception as e:
+            print(f"Error with brand interactions: {e}")
+    
+    # Example 11: Brand Comments System
+    if public_brands.get('public_brands'):
+        print("\n=== Brand Comments System ===")
+        test_brand = public_brands['public_brands'][0]
+        brand_id = test_brand.get('brand_id')
+        brand_name = test_brand.get('name', 'Unknown Brand')
+        
+        try:
+            print(f"Testing comments on brand: {brand_name}")
+            
+            # Add a comment
+            print("Adding a comment...")
+            comment_result = client.brand.add_comment(
+                brand_id=brand_id,
+                content="This is a great brand design! The colors work really well together."
+            )
+            comment_id = comment_result.get('comment_id')
+            print(f"Comment added with ID: {comment_id}")
+            
+            # Add a reply to the comment
+            if comment_id:
+                print("Adding a reply...")
+                reply_result = client.brand.add_comment(
+                    brand_id=brand_id,
+                    content="I agree! The typography is also very professional.",
+                    parent_comment_id=comment_id
+                )
+                reply_id = reply_result.get('comment_id')
+                print(f"Reply added with ID: {reply_id}")
+            
+            # Get comments for the brand
+            print("\nRetrieving comments...")
+            comments_result = client.brand.get_comments(
+                brand_id=brand_id,
+                page=1,
+                limit=10
+            )
+            
+            comments = comments_result.get('comments', [])
+            pagination = comments_result.get('pagination', {})
+            print(f"Found {len(comments)} comments (Total: {pagination.get('total', 0)})")
+            
+            for comment in comments:
+                username = comment.get('username', 'Anonymous')
+                content = comment.get('content', '')
+                created_at = comment.get('created_at', '')
+                replies_count = len(comment.get('replies', []))
+                print(f"- {username}: {content[:50]}{'...' if len(content) > 50 else ''}")
+                if replies_count > 0:
+                    print(f"  ({replies_count} replies)")
+            
+            # Update the first comment if we have one
+            if comment_id:
+                print("\nUpdating the comment...")
+                update_result = client.brand.update_comment(
+                    comment_id=comment_id,
+                    content="This is a great brand design! The colors work really well together. Updated with more details."
+                )
+                print(f"Comment updated: {update_result.get('message')}")
+            
+            # Note: We're not deleting the comment in the example to avoid cleanup issues
+            # In a real application, you might want to clean up test comments:
+            # delete_result = client.brand.delete_comment(comment_id=comment_id)
+            
+        except Exception as e:
+            print(f"Error with brand comments: {e}")
 
 if __name__ == "__main__":
     main()

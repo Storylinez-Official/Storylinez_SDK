@@ -1168,3 +1168,166 @@ class BrandClient(BaseClient):
         update_params = {"logo_upload_id": upload_id}
         update_params.update(brand_params)
         return self.update(brand_id=brand_id, **update_params)
+    
+    # User Interaction Methods
+    
+    def like(self, brand_id: str, **kwargs) -> Dict:
+        """
+        Like a specific brand.
+        
+        Args:
+            brand_id: ID of the brand to like
+            
+        Returns:
+            Dictionary containing success status and interaction type
+        """
+        payload = {
+            'brand_id': brand_id
+        }
+        
+        return self._make_request(
+            'POST',
+            f"{self.brand_url}/like",
+            data=payload,
+            **kwargs
+        )
+    
+    def dislike(self, brand_id: str, **kwargs) -> Dict:
+        """
+        Dislike a specific brand.
+        
+        Args:
+            brand_id: ID of the brand to dislike
+            
+        Returns:
+            Dictionary containing success status and interaction type
+        """
+        payload = {
+            'brand_id': brand_id
+        }
+        
+        return self._make_request(
+            'POST',
+            f"{self.brand_url}/dislike",
+            data=payload,
+            **kwargs
+        )
+    
+    def remove_interaction(self, brand_id: str, **kwargs) -> Dict:
+        """
+        Remove any existing interaction (like or dislike) with a specific brand.
+        
+        Args:
+            brand_id: ID of the brand to remove interaction from
+            
+        Returns:
+            Dictionary containing success status and interaction type (null)
+        """
+        payload = {
+            'brand_id': brand_id
+        }
+        
+        return self._make_request(
+            'POST',
+            f"{self.brand_url}/remove_interaction",
+            data=payload,
+            **kwargs
+        )
+    
+    # Brand Comment Methods
+    
+    def add_comment(self, brand_id: str, content: str, parent_comment_id: Optional[str] = None, **kwargs) -> Dict:
+        """
+        Add a comment to a brand.
+        
+        Args:
+            brand_id: ID of the brand to comment on
+            content: The comment text content
+            parent_comment_id: ID of parent comment if this is a reply (optional)
+            
+        Returns:
+            Dictionary containing success status and comment_id
+        """
+        payload = {
+            'brand_id': brand_id,
+            'content': content
+        }
+        
+        if parent_comment_id:
+            payload['parent_comment_id'] = parent_comment_id
+        
+        return self._make_request(
+            'POST',
+            f"{self.brand_url}/comment",
+            data=payload,
+            **kwargs
+        )
+    
+    def get_comments(self, brand_id: str, page: int = 1, limit: int = 10, **kwargs) -> Dict:
+        """
+        Get comments for a specific brand.
+        
+        Args:
+            brand_id: ID of the brand to get comments for
+            page: Page number for pagination (default: 1)
+            limit: Number of comments per page (default: 10, max: 50)
+            
+        Returns:
+            Dictionary containing comments and pagination info
+        """
+        params = {
+            'brand_id': brand_id,
+            'page': page,
+            'limit': min(limit, 50)  # Enforce max limit
+        }
+        
+        return self._make_request(
+            'GET',
+            f"{self.brand_url}/comments",
+            params=params,
+            **kwargs
+        )
+    
+    def update_comment(self, comment_id: str, content: str, **kwargs) -> Dict:
+        """
+        Update an existing comment.
+        
+        Args:
+            comment_id: ID of the comment to update
+            content: The new comment content
+            
+        Returns:
+            Dictionary containing success status
+        """
+        payload = {
+            'comment_id': comment_id,
+            'content': content
+        }
+        
+        return self._make_request(
+            'PUT',
+            f"{self.brand_url}/comment",
+            data=payload,
+            **kwargs
+        )
+    
+    def delete_comment(self, comment_id: str, **kwargs) -> Dict:
+        """
+        Delete an existing comment.
+        
+        Args:
+            comment_id: ID of the comment to delete
+            
+        Returns:
+            Dictionary containing success status
+        """
+        params = {
+            'comment_id': comment_id
+        }
+        
+        return self._make_request(
+            'DELETE',
+            f"{self.brand_url}/comment",
+            params=params,
+            **kwargs
+        )

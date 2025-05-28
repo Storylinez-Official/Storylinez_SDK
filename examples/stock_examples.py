@@ -129,10 +129,9 @@ def main():
             'videos': [],
             'images': []
         }
-        
-        # Add video IDs
+          # Add video IDs
         for i in range(min(2, len(videos))):
-            video_id = videos[i].get('stock_id') or video[i].get('_id')
+            video_id = videos[i].get('stock_id') or videos[i].get('_id')
             ids_by_media_type['videos'].append(video_id)
         
         # Add image IDs if available
@@ -148,12 +147,62 @@ def main():
                 detailed=True,
                 generate_thumbnail=True
             )
-            
-            # Print results
+              # Print results
             for media_type, items in batch_results.items():
                 print(f"Retrieved {len(items)} {media_type}")
         except ValueError as e:
             print(f"Error in batch get: {e}")
+    
+    # Example 7: User Interactions - Like/Dislike functionality
+    if videos:
+        print("\n=== User Interactions - Like/Dislike Functionality ===")
+        video_id = videos[0].get('stock_id') or videos[0].get('_id')
+        
+        try:
+            # Like a video
+            print("Liking the first video...")
+            like_result = client.stock.like(
+                stock_id=video_id,
+                media_type="videos"
+            )
+            print(f"Like result: {like_result.get('message')}")
+            print(f"Interaction type: {like_result.get('interaction_type')}")
+            
+            # Dislike the same video (changes interaction)
+            print("\nChanging to dislike...")
+            dislike_result = client.stock.dislike(
+                stock_id=video_id,
+                media_type="videos"
+            )
+            print(f"Dislike result: {dislike_result.get('message')}")
+            print(f"Interaction type: {dislike_result.get('interaction_type')}")
+            
+            # Remove interaction (reset to neutral)
+            print("\nRemoving interaction...")
+            remove_result = client.stock.remove_interaction(
+                stock_id=video_id,
+                media_type="videos"
+            )
+            print(f"Remove result: {remove_result.get('message')}")
+            print(f"Interaction type: {remove_result.get('interaction_type')}")
+            
+        except Exception as e:
+            print(f"Error with interactions: {e}")
+        
+        # Example with different media types
+        images = search_results.get('images', [])
+        if images:
+            print("\nTrying interactions with an image...")
+            image_id = images[0].get('stock_id') or images[0].get('_id')
+            
+            try:
+                like_result = client.stock.like(
+                    stock_id=image_id,
+                    media_type="images"
+                )
+                print(f"Liked image: {like_result.get('interaction_type')}")
+            except Exception as e:
+                print(f"Error liking image: {e}")
 
 if __name__ == "__main__":
     main()

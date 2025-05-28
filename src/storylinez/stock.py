@@ -459,3 +459,86 @@ class StockClient(BaseClient):
                 items_by_type[media_type].append(item)
                 
         return items_by_type
+    
+    # User Interaction Methods
+    
+    def like(self, stock_id: str, media_type: str, **kwargs) -> Dict:
+        """
+        Like a specific stock media item.
+        
+        Args:
+            stock_id: ID of the stock media item to like
+            media_type: Type of media ('videos', 'audios', 'images')
+            
+        Returns:
+            Dictionary containing success status and interaction type
+        """
+        # Validate media_type
+        if media_type not in ['videos', 'audios', 'images']:
+            raise ValueError("media_type must be one of: videos, audios, images")
+        
+        payload = {
+            'stock_id': stock_id,
+            'media_type': media_type
+        }
+        
+        return self._make_request(
+            'POST',
+            f"{self.stock_url}/like",
+            data=payload,
+            **kwargs
+        )
+    
+    def dislike(self, stock_id: str, media_type: str, **kwargs) -> Dict:
+        """
+        Dislike a specific stock media item.
+        
+        Args:
+            stock_id: ID of the stock media item to dislike
+            media_type: Type of media ('videos', 'audios', 'images')
+            
+        Returns:
+            Dictionary containing success status and interaction type
+        """
+        # Validate media_type
+        if media_type not in ['videos', 'audios', 'images']:
+            raise ValueError("media_type must be one of: videos, audios, images")
+        
+        payload = {
+            'stock_id': stock_id,
+            'media_type': media_type
+        }
+        
+        return self._make_request(
+            'POST',
+            f"{self.stock_url}/dislike",
+            data=payload,
+            **kwargs
+        )
+    
+    def remove_interaction(self, stock_id: str, media_type: str, **kwargs) -> Dict:
+        """
+        Remove any existing interaction (like or dislike) with a specific stock media item.
+        
+        Args:
+            stock_id: ID of the stock media item to remove interaction from
+            media_type: Type of media ('videos', 'audios', 'images')
+            
+        Returns:
+            Dictionary containing success status and interaction type (null)
+        """
+        # Validate media_type
+        if media_type not in ['videos', 'audios', 'images']:
+            raise ValueError("media_type must be one of: videos, audios, images")
+        
+        payload = {
+            'stock_id': stock_id,
+            'media_type': media_type
+        }
+        
+        return self._make_request(
+            'POST',
+            f"{self.stock_url}/remove_interaction",
+            data=payload,
+            **kwargs
+        )
