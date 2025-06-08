@@ -4,7 +4,7 @@
 [![Python Versions](https://img.shields.io/pypi/pyversions/storylinez.svg)](https://pypi.org/project/storylinez/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-![Storylinez SDK - AI-driven content creation platform](https://github.com/Kawai-Senpai/Storylinez-SDK/blob/ecc7a73631dfd1db228baabb0ea2cf0b338fdef6/assets/Storylinez%20Cover.png)
+![Storylinez SDK - AI-driven content creation platform](https://github.com/Kawai-Senpai/Storylinez-SDK/blob/56f0d9d2d4902c6dfffbc453f9ed356eb7ecb308/assets/Storylinez%20Cover.png)
 
 > **Note:** Example usage scripts can be found in the `examples` folder. Utility and automation scripts are located in the `scripts` folder.
 
