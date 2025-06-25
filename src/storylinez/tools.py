@@ -35,7 +35,8 @@ class ToolsClient(BaseClient):
             "shotlist",
             "ad_concept",
             "scene_transitions",
-            "scene_splitter"
+            "scene_splitter",
+            "web_scraper_advanced"
         ]
     
     def get_tool_types(self) -> Dict:
@@ -797,6 +798,81 @@ class ToolsClient(BaseClient):
         
         return self._make_request("POST", f"{self.tools_url}/create", json_data=data)
     
+    # Web Scraper Advanced Tool
+    
+    def create_web_scraper_advanced(
+        self,
+        name: str,
+        website_url: str,
+        org_id: str = None,
+        depth: int = 2,
+        max_pages: int = 5,
+        max_text_chars: int = 20000,
+        enable_js: bool = True,
+        parallel: bool = True,
+        retry_count: int = 2,
+        retry_delay: int = 1,
+        timeout: int = 16,
+        documents: List[Dict] = None,
+        **kwargs
+    ) -> Dict:
+        """
+        Create a web scraper advanced job using AI-powered extraction and analysis.
+        
+        Args:
+            name: Name for the web scraping job
+            website_url: The URL of the website to scrape
+            org_id: Organization ID (uses default if not provided)
+            depth: How deep to crawl links (default: 2)
+            max_pages: Maximum number of pages to scrape (default: 5)
+            max_text_chars: Maximum number of text characters to extract (default: 20000)
+            enable_js: Enable JavaScript rendering (default: True)
+            parallel: Enable parallel scraping (default: True)
+            retry_count: Number of retry attempts (default: 2)
+            retry_delay: Delay between retries in seconds (default: 1)
+            timeout: Timeout for each page in seconds (default: 16)
+            documents: Optional list of document contexts to consider
+            **kwargs: Additional parameters to pass directly to the API
+        
+        Returns:
+            Dictionary with tool details and job information
+        
+        Raises:
+            ValueError: If required parameters are missing or invalid
+        
+        Example:
+            >>> client.tools.create_web_scraper_advanced(
+            ...     name="BGiving Scrape",
+            ...     website_url="https://bgiving.one",
+            ...     depth=2,
+            ...     max_pages=5,
+            ...     enable_js=True
+            ... )
+        """
+        if not name:
+            raise ValueError("Name is required")
+        if not website_url:
+            raise ValueError("website_url is required")
+        org_id = self._validate_org_id(org_id)
+        documents = self._format_document_list(documents)
+        data = {
+            "tool_type": "web_scraper_advanced",
+            "org_id": org_id,
+            "name": name,
+            "website_url": website_url,
+            "depth": depth,
+            "max_pages": max_pages,
+            "max_text_chars": max_text_chars,
+            "enable_js": enable_js,
+            "parallel": parallel,
+            "retry_count": retry_count,
+            "retry_delay": retry_delay,
+            "timeout": timeout,
+            "documents": documents
+        }
+        data.update(kwargs)
+        return self._make_request("POST", f"{self.tools_url}/create", json_data=data)
+    
     # Tool Management Methods
     
     def get_tool(self, tool_id: str, include_job: bool = True, **kwargs) -> Dict:
@@ -1156,7 +1232,8 @@ class ToolsClient(BaseClient):
             "shotlist": self.create_shotlist,
             "ad_concept": self.create_ad_concept,
             "scene_transitions": self.create_scene_transitions,
-            "scene_splitter": self.create_scene_splitter
+            "scene_splitter": self.create_scene_splitter,
+            "web_scraper_advanced": self.create_web_scraper_advanced
         }
         
         # Create the tool

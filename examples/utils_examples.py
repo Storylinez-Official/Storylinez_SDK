@@ -189,6 +189,27 @@ def main():
             
     except Exception as e:
         print(f"Error listing jobs: {str(e)}")
+    
+    # Example 9: Extract brand settings from a website
+    print("\n=== Extracting Brand Settings from Website ===")
+    try:
+        website_url = "https://bgiving.one"  # Replace with a real website
+        brand_job = client.utils.extract_brand_settings(
+            website_url=website_url,
+            org_id=ORG_ID,
+            job_name=f"Brand Settings Extraction - {website_url}",
+            temperature=0.7,
+            timeout=15,
+            include_palette=True,
+            dynamic_extraction=False,
+            max_elements=100,
+            web_search=False
+        )
+        job_id = brand_job.get("job_id")
+        print(f"Started brand settings extraction job with ID: {job_id}")
+        # In a real app, you would poll for job completion and fetch the result
+    except Exception as e:
+        print(f"Error extracting brand settings: {str(e)}")
 
 if __name__ == "__main__":
     main()

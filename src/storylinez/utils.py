@@ -418,6 +418,88 @@ class UtilsClient(BaseClient):
         
         return self._make_request("POST", f"{self.utils_url}/organization-info", params=params, json_data=data)
     
+    def extract_brand_settings(
+        self,
+        website_url: str,
+        org_id: str = None,
+        job_name: str = None,
+        temperature: float = 0.7,
+        deepthink: bool = False,
+        overdrive: bool = False,
+        eco: bool = False,
+        timeout: int = 15,
+        include_palette: bool = False,
+        dynamic_extraction: bool = False,
+        max_elements: int = 100,
+        web_search: bool = False,
+        **kwargs
+    ) -> Dict:
+        """
+        Extract brand settings (palette, fonts, colors, logo, etc.) from a website using AI.
+        
+        Args:
+            website_url: The website URL to extract brand settings from
+            org_id: Organization ID for access validation (uses default if not provided)
+            job_name: Optional name for the job
+            temperature: Randomness factor (0.0-1.0, default: 0.7)
+            deepthink: Enable deeper analysis (default: False)
+            overdrive: Use more compute resources (default: False)
+            eco: Use economic/reduced compute model (default: False)
+            timeout: Timeout in seconds (default: 15)
+            include_palette: Whether to extract palette data (default: False)
+            dynamic_extraction: Enable dynamic extraction (default: False)
+            max_elements: Maximum number of elements to extract (default: 100)
+            web_search: Enable web search (default: False)
+            **kwargs: Additional parameters to pass directly to the API
+        
+        Returns:
+            Dictionary with job ID and status
+        
+        Raises:
+            ValueError: If required parameters are missing or invalid
+        
+        Example:
+            >>> result = client.utils.extract_brand_settings(
+            ...     website_url="https://bgiving.one",
+            ...     org_id="your_org_id_here",
+            ...     job_name="Brand Settings Extraction - https://bgiving.one",
+            ...     temperature=0.7,
+            ...     timeout=15
+            ... )
+            >>> job_id = result.get("job_id")
+            >>> # Wait for job to complete
+            >>> job_result = client.utils.get_job_result(job_id)
+        """
+        org_id = org_id or self.default_org_id
+        if not org_id:
+            raise ValueError("Organization ID is required. Either provide org_id parameter or set a default_org_id when initializing the client.")
+        if not website_url:
+            raise ValueError("website_url is required")
+        if not website_url.startswith(("http://", "https://")):
+            raise ValueError("website_url must be a valid URL starting with http:// or https://")
+        if not (0.0 <= temperature <= 1.0):
+            raise ValueError("temperature must be between 0.0 and 1.0")
+        if eco and overdrive:
+            raise ValueError("eco and overdrive modes cannot be used together")
+        data = {
+            "website_url": website_url,
+            "org_id": org_id,
+            "temperature": temperature,
+            "timeout": timeout,
+            "include_palette": include_palette,
+            "dynamic_extraction": dynamic_extraction,
+            "max_elements": max_elements,
+            "web_search": web_search
+        }
+        if job_name:
+            data["job_name"] = job_name
+        # Add deepthink/overdrive/eco if set
+        data["deepthink"] = deepthink
+        data["overdrive"] = overdrive
+        data["eco"] = eco
+        data.update(kwargs)
+        return self._make_request("POST", f"{self.utils_url}/brand-settings-extraction", json_data=data)
+    
     # Job Management
     
     def get_job_result(self, job_id: str) -> Dict:

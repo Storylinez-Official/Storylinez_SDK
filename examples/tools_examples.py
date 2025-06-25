@@ -285,6 +285,28 @@ def main():
     #     # result_data = completed_tool.get('job_result', {}).get('result', {})
     # except Exception as e:
     #     print(f"Error: {str(e)}")
-
+    
+    # Example 14: Create a web scraper advanced job
+    print("\n=== Creating Web Scraper Advanced Job ===")
+    try:
+        web_scraper_result = client.tools.create_web_scraper_advanced(
+            name="BGiving Scrape",
+            website_url="https://bgiving.one",
+            depth=2,
+            max_pages=5,
+            max_text_chars=20000,
+            enable_js=True,
+            parallel=True,
+            retry_count=2,
+            retry_delay=1,
+            timeout=16
+        )
+        tool_id = web_scraper_result.get('tool', {}).get('tool_id')
+        job_id = web_scraper_result.get('job_id')
+        print(f"Created web scraper advanced job with ID: {tool_id}")
+        print(f"Job ID: {job_id}")
+    except Exception as e:
+        print(f"Error creating web scraper advanced job: {str(e)}")
+    
 if __name__ == "__main__":
     main()
