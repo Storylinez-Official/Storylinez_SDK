@@ -633,28 +633,34 @@ class UtilsClient(BaseClient):
         
         while timeout_seconds == 0 or (time.time() - start_time) < timeout_seconds:
             job_result = self.get_job_result(job_id)
-            
-            # Determine job state by checking the response structure
-            current_job_state = "processing"  # Default state
-            
-            if "result" in job_result and job_result.get("result"):
+
+            # Default state
+            current_job_state = "processing"
+
+            # Improved status check: look for status in result
+            status = None
+            if "result" in job_result and isinstance(job_result["result"], dict):
+                status = job_result["result"].get("status")
+            if status == "COMPLETED":
                 current_job_state = "completed"
-            elif job_result.get("error") is not None:
+            elif status == "FAILED":
                 current_job_state = "failed"
-            
+            else:
+                current_job_state = "processing"
+
             # Call callback if provided and state changed
             if callback and current_job_state != last_job_state:
                 callback(current_job_state)
             last_job_state = current_job_state
-            
+
             if current_job_state == "completed":
                 return job_result
             elif current_job_state == "failed":
-                raise Exception(f"Job failed: {job_result.get('error')}")
-            
+                raise Exception(f"Job failed: {job_result.get('error') or status}")
+
             # Wait before polling again
             time.sleep(polling_interval)
-        
+
         raise TimeoutError(f"Job did not complete within {timeout_seconds} seconds")
     
     def enhance_prompt_and_wait(

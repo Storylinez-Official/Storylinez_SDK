@@ -72,11 +72,13 @@ class PipelineClient:
                 eco=eco,
                 timeout=timeout
             )
-            print("Web Scraping Job Response:", web_scraping_job)
             tool_id = web_scraping_job.get("tool", {}).get("tool_id")
             if not tool_id:
                 raise Exception("Web scraping did not return a tool ID in response['tool']['tool_id'].")
-            web_scraping_result = self.client.tools.wait_for_tool_completion(tool_id)
+            web_scraping_result = self.client.tools.wait_for_tool_completion(
+                tool_id,
+                polling_interval=polling_interval
+            )
         except Exception as e:
             errors["web_scraping"] = str(e)
             web_scraping_result = None
@@ -94,11 +96,13 @@ class PipelineClient:
                     dynamic_extraction=dynamic_extraction,
                     web_search=web_search
                 )
-                print("Brand Extraction Job Response:", brand_extraction_job)
                 job_id = brand_extraction_job.get("job_id") or brand_extraction_job.get("id")
                 if not job_id:
                     raise Exception("Brand extraction did not return a job ID.")
-                brand_extraction_result = self.client.utils.wait_for_job_completion(job_id)
+                brand_extraction_result = self.client.utils.wait_for_job_completion(
+                    job_id,
+                    polling_interval=polling_interval
+                )
             except Exception as e:
                 errors["brand_extraction"] = str(e)
                 brand_extraction_result = None
