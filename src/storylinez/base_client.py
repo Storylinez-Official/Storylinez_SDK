@@ -16,14 +16,47 @@ class BaseClient:
             "Content-Type": "application/json",
         }
 
-    def _make_request(self, method: str, url: str, params: Dict = None, 
-                    json_data: Dict = None, data: Any = None, 
-                    files: Dict = None, headers: Dict = None,
-                    max_retries: int = 3, retry_delay: float = 1.0) -> Dict:
+    def _make_request(
+        self,
+        method: str,
+        url: str,
+        params: Dict = None,
+        json_data: Dict = None,
+        json: Dict = None,
+        data: Any = None,
+        files: Dict = None,
+        headers: Dict = None,
+        max_retries: int = 3,
+        retry_delay: float = 1.0
+    ) -> Dict:
+        """
+        Make an HTTP request with support for JSON payloads.
+
+        Args:
+            method (str): HTTP method (GET, POST, etc.).
+            url (str): The URL to send the request to.
+            params (Dict, optional): Query parameters.
+            json_data (Dict, optional): JSON data to send in the request body. Takes precedence over 'json' if both are provided.
+            json (Dict, optional): Alternative keyword for JSON data. Used if 'json_data' is not provided.
+            data (Any, optional): Data to send in the request body (for non-JSON payloads).
+            files (Dict, optional): Files to upload.
+            headers (Dict, optional): Additional headers.
+            max_retries (int, optional): Maximum number of retries for network errors.
+            retry_delay (float, optional): Initial delay between retries in seconds.
+
+        Returns:
+            Dict: The JSON response from the API.
+
+        Raises:
+            Exception: If the request fails after retries or returns an error status.
+        """
         request_headers = self._get_headers()
         if headers:
             request_headers.update(headers)
-            
+
+        # Prefer json_data if both are provided
+        json_payload = json_data if json_data is not None else json
+
         retries = 0
         while True:
             try:
@@ -31,7 +64,7 @@ class BaseClient:
                     method=method,
                     url=url,
                     params=params,
-                    json=json_data,
+                    json=json_payload,
                     data=data,
                     files=files,
                     headers=request_headers

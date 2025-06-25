@@ -191,6 +191,7 @@ def main():
         print(f"Error listing jobs: {str(e)}")
     
     # Example 9: Extract brand settings from a website
+    # This example uses the `/extract-brand-settings` endpoint, matching the backend and SDK.
     print("\n=== Extracting Brand Settings from Website ===")
     try:
         website_url = "https://bgiving.one"  # Replace with a real website

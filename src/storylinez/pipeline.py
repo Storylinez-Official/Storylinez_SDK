@@ -1,20 +1,21 @@
 import time
 from typing import Dict, Any
-from .utils import UtilsClient
+# from .utils import UtilsClient
+# from .tools import ToolsClient
 
 class PipelineClient:
     """
     Client for managing pipelines that combine multiple operations like web scraping and brand extraction.
     """
 
-    def __init__(self, utils_client: UtilsClient):
+    def __init__(self, client):
         """
         Initialize the PipelineClient.
 
         Args:
-            utils_client: An instance of UtilsClient to interact with utility APIs.
+            client: The main API client, which must provide `.utils` and `.tools` attributes.
         """
-        self.utils_client = utils_client
+        self.client = client
 
     def run_web_scraping_and_brand_extraction(
         self,
@@ -32,6 +33,7 @@ class PipelineClient:
     ) -> Dict[str, Any]:
         """
         Perform web scraping and brand extraction in a single pipeline.
+        This function ensures both steps are fully completed before returning.
 
         Args:
             website_url: The URL of the website to scrape.
@@ -47,62 +49,68 @@ class PipelineClient:
             polling_interval: Time (in seconds) between job status checks (default: 10).
 
         Returns:
-            A dictionary containing the combined results of web scraping and brand extraction.
+            A dictionary containing the completed outputs for "web_scraping" and "brand_extraction".
 
         Raises:
-            TimeoutError: If the pipeline does not complete within the timeout period.
             Exception: If any step in the pipeline fails.
         """
-        # Step 1: Start web scraping job
-        web_scraping_params = {
-            "website_url": website_url,
-            "timeout": timeout,
-            "depth": depth,
-            "enable_js": enable_js,
-            "deepthink": deepthink,
-            "overdrive": overdrive,
-            "web_search": web_search,
-            "eco": eco,
+        errors = {}
+        web_scraping_result = None
+        brand_extraction_result = None
+
+        # Step 1: Web scraping (waits for completion)
+        try:
+            # Step 1: Start web scraping and get tool ID
+            web_scraping_job = self.client.tools.create_web_scraper_advanced(
+                name="WebScrapingJob",
+                website_url=website_url,
+                depth=depth,
+                enable_js=enable_js,
+                deepthink=deepthink,
+                overdrive=overdrive,
+                web_search=web_search,
+                eco=eco,
+                timeout=timeout
+            )
+            print("Web Scraping Job Response:", web_scraping_job)
+            tool_id = web_scraping_job.get("tool", {}).get("tool_id")
+            if not tool_id:
+                raise Exception("Web scraping did not return a tool ID in response['tool']['tool_id'].")
+            web_scraping_result = self.client.tools.wait_for_tool_completion(tool_id)
+        except Exception as e:
+            errors["web_scraping"] = str(e)
+            web_scraping_result = None
+
+        # Step 2: Brand extraction (waits for completion, only if scraping succeeded)
+        if web_scraping_result:
+            try:
+                brand_extraction_job = self.client.utils.extract_brand_settings(
+                    website_url=website_url,
+                    deepthink=deepthink,
+                    overdrive=overdrive,
+                    eco=eco,
+                    timeout=timeout,
+                    include_palette=include_palette,
+                    dynamic_extraction=dynamic_extraction,
+                    web_search=web_search
+                )
+                print("Brand Extraction Job Response:", brand_extraction_job)
+                job_id = brand_extraction_job.get("job_id") or brand_extraction_job.get("id")
+                if not job_id:
+                    raise Exception("Brand extraction did not return a job ID.")
+                brand_extraction_result = self.client.utils.wait_for_job_completion(job_id)
+            except Exception as e:
+                errors["brand_extraction"] = str(e)
+                brand_extraction_result = None
+        elif "web_scraping" not in errors:
+            errors["web_scraping"] = "Web scraping did not return expected result."
+            brand_extraction_result = None
+
+        # Ensure both results are fully obtained before returning
+        result = {
+            "web_scraping": web_scraping_result,
+            "brand_extraction": brand_extraction_result
         }
-        web_scraping_job = self.utils_client._make_request("POST", f"{self.utils_client.utils_url}/web-scraping", json=web_scraping_params)
-        web_scraping_job_id = web_scraping_job.get("job_id")
-
-        if not web_scraping_job_id:
-            raise Exception("Failed to start web scraping job")
-
-        # Step 2: Wait for web scraping to complete
-        web_scraping_result = self.utils_client.wait_for_job_completion(
-            job_id=web_scraping_job_id,
-            timeout_seconds=timeout,
-            polling_interval=polling_interval
-        )
-
-        # Step 3: Start brand extraction job using web scraping results
-        brand_extraction_params = {
-            "website_url": website_url,
-            "scraped_data": web_scraping_result.get("result"),
-            "include_palette": include_palette,
-            "dynamic_extraction": dynamic_extraction,
-            "deepthink": deepthink,
-            "overdrive": overdrive,
-            "web_search": web_search,
-            "eco": eco,
-        }
-        brand_extraction_job = self.utils_client._make_request("POST", f"{self.utils_client.utils_url}/brand-extraction", json=brand_extraction_params)
-        brand_extraction_job_id = brand_extraction_job.get("job_id")
-
-        if not brand_extraction_job_id:
-            raise Exception("Failed to start brand extraction job")
-
-        # Step 4: Wait for brand extraction to complete
-        brand_extraction_result = self.utils_client.wait_for_job_completion(
-            job_id=brand_extraction_job_id,
-            timeout_seconds=timeout,
-            polling_interval=polling_interval
-        )
-
-        # Step 5: Combine results and return
-        return {
-            "web_scraping": web_scraping_result.get("result"),
-            "brand_extraction": brand_extraction_result.get("result")
-        }
+        if errors:
+            result["errors"] = errors
+        return result

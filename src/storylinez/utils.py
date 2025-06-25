@@ -498,7 +498,7 @@ class UtilsClient(BaseClient):
         data["overdrive"] = overdrive
         data["eco"] = eco
         data.update(kwargs)
-        return self._make_request("POST", f"{self.utils_url}/brand-settings-extraction", json_data=data)
+        return self._make_request("POST", f"{self.utils_url}/extract-brand-settings", json_data=data)
     
     # Job Management
     
