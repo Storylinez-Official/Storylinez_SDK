@@ -12,6 +12,8 @@ build/
 .env*
 *.DS_Store
 *.vscode/
+test*.py
+test*.ipynb
 
 upload.bat
 _git_push.bat

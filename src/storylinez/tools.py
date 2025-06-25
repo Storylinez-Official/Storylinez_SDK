@@ -814,6 +814,10 @@ class ToolsClient(BaseClient):
         retry_delay: int = 1,
         timeout: int = 16,
         documents: List[Dict] = None,
+        deepthink: bool = False,
+        overdrive: bool = False,
+        web_search: bool = False,
+        eco: bool = False,
         **kwargs
     ) -> Dict:
         """
@@ -832,6 +836,10 @@ class ToolsClient(BaseClient):
             retry_delay: Delay between retries in seconds (default: 1)
             timeout: Timeout for each page in seconds (default: 16)
             documents: Optional list of document contexts to consider
+            deepthink: Enable advanced thinking for complex topics (default: False)
+            overdrive: Enable maximum quality and detail (default: False)
+            web_search: Enable web search for up-to-date information (default: False)
+            eco: Enable eco mode for faster processing (default: False)
             **kwargs: Additional parameters to pass directly to the API
         
         Returns:
@@ -868,7 +876,11 @@ class ToolsClient(BaseClient):
             "retry_count": retry_count,
             "retry_delay": retry_delay,
             "timeout": timeout,
-            "documents": documents
+            "documents": documents,
+            "deepthink": deepthink,
+            "overdrive": overdrive,
+            "web_search": web_search,
+            "eco": eco
         }
         data.update(kwargs)
         return self._make_request("POST", f"{self.tools_url}/create", json_data=data)
@@ -1132,7 +1144,7 @@ class ToolsClient(BaseClient):
         self,
         tool_id: str,
         max_wait_time: int = 120,
-        polling_interval: int = 2
+        polling_interval: int = 10
     ) -> Dict:
         """
         Wait for a tool job to complete, with timeout.
@@ -1218,7 +1230,7 @@ class ToolsClient(BaseClient):
             
         # Extract wait parameters
         max_wait_time = kwargs.pop("max_wait_time", 120)
-        polling_interval = kwargs.pop("polling_interval", 2)
+        polling_interval = kwargs.pop("polling_interval", 10)
         
         # Validate tool type
         if tool_type not in self.valid_tool_types:

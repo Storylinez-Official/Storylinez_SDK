@@ -16,13 +16,35 @@ class PipelineClient:
         """
         self.utils_client = utils_client
 
-    def run_web_scraping_and_brand_extraction(self, website_url: str, **kwargs) -> Dict[str, Any]:
+    def run_web_scraping_and_brand_extraction(
+        self,
+        website_url: str,
+        timeout: int = 60,
+        depth: int = 1,
+        enable_js: bool = False,
+        include_palette: bool = True,
+        dynamic_extraction: bool = False,
+        deepthink: bool = False,
+        overdrive: bool = False,
+        web_search: bool = False,
+        eco: bool = False,
+        polling_interval: int = 10
+    ) -> Dict[str, Any]:
         """
         Perform web scraping and brand extraction in a single pipeline.
 
         Args:
             website_url: The URL of the website to scrape.
-            **kwargs: Additional parameters for web scraping and brand extraction.
+            timeout: Maximum time (in seconds) to wait for each job (default: 60).
+            depth: How deep to crawl links during web scraping (default: 1).
+            enable_js: Enable JavaScript rendering for web scraping (default: False).
+            include_palette: Include color palette in brand extraction (default: True).
+            dynamic_extraction: Enable dynamic extraction for brand settings (default: False).
+            deepthink: Enable advanced AI reasoning (default: False).
+            overdrive: Enable maximum quality and detail (default: False).
+            web_search: Enable web search for up-to-date information (default: False).
+            eco: Enable eco mode for faster processing (default: False).
+            polling_interval: Time (in seconds) between job status checks (default: 10).
 
         Returns:
             A dictionary containing the combined results of web scraping and brand extraction.
@@ -34,9 +56,13 @@ class PipelineClient:
         # Step 1: Start web scraping job
         web_scraping_params = {
             "website_url": website_url,
-            "timeout": kwargs.get("timeout", 60),
-            "depth": kwargs.get("depth", 1),
-            "enable_js": kwargs.get("enable_js", False),
+            "timeout": timeout,
+            "depth": depth,
+            "enable_js": enable_js,
+            "deepthink": deepthink,
+            "overdrive": overdrive,
+            "web_search": web_search,
+            "eco": eco,
         }
         web_scraping_job = self.utils_client._make_request("POST", f"{self.utils_client.utils_url}/web-scraping", json=web_scraping_params)
         web_scraping_job_id = web_scraping_job.get("job_id")
@@ -47,16 +73,20 @@ class PipelineClient:
         # Step 2: Wait for web scraping to complete
         web_scraping_result = self.utils_client.wait_for_job_completion(
             job_id=web_scraping_job_id,
-            timeout_seconds=kwargs.get("timeout", 60),
-            polling_interval=kwargs.get("polling_interval", 2)
+            timeout_seconds=timeout,
+            polling_interval=polling_interval
         )
 
         # Step 3: Start brand extraction job using web scraping results
         brand_extraction_params = {
             "website_url": website_url,
             "scraped_data": web_scraping_result.get("result"),
-            "include_palette": kwargs.get("include_palette", True),
-            "dynamic_extraction": kwargs.get("dynamic_extraction", False),
+            "include_palette": include_palette,
+            "dynamic_extraction": dynamic_extraction,
+            "deepthink": deepthink,
+            "overdrive": overdrive,
+            "web_search": web_search,
+            "eco": eco,
         }
         brand_extraction_job = self.utils_client._make_request("POST", f"{self.utils_client.utils_url}/brand-extraction", json=brand_extraction_params)
         brand_extraction_job_id = brand_extraction_job.get("job_id")
@@ -67,8 +97,8 @@ class PipelineClient:
         # Step 4: Wait for brand extraction to complete
         brand_extraction_result = self.utils_client.wait_for_job_completion(
             job_id=brand_extraction_job_id,
-            timeout_seconds=kwargs.get("timeout", 60),
-            polling_interval=kwargs.get("polling_interval", 2)
+            timeout_seconds=timeout,
+            polling_interval=polling_interval
         )
 
         # Step 5: Combine results and return

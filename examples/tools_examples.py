@@ -299,7 +299,11 @@ def main():
             parallel=True,
             retry_count=2,
             retry_delay=1,
-            timeout=16
+            timeout=16,
+            deepthink=False,
+            overdrive=False,
+            web_search=False,
+            eco=False
         )
         tool_id = web_scraper_result.get('tool', {}).get('tool_id')
         job_id = web_scraper_result.get('job_id')

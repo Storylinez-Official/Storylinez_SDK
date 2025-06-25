@@ -16,7 +16,11 @@ try:
         depth=2,      # Optional: Adjust scraping depth
         enable_js=True,  # Optional: Enable JavaScript rendering
         include_palette=True,  # Optional: Include color palette in brand extraction
-        dynamic_extraction=False  # Optional: Disable dynamic extraction
+        dynamic_extraction=False,  # Optional: Disable dynamic extraction
+        deepthink=False,  # New: Control AI deepthink
+        overdrive=False,  # New: Control AI overdrive
+        web_search=False, # New: Control AI web search
+        eco=False         # New: Control AI eco mode
     )
     print("Pipeline result:", result)
 except Exception as e:

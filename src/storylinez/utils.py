@@ -591,7 +591,7 @@ class UtilsClient(BaseClient):
         self, 
         job_id: str, 
         timeout_seconds: int = 60, 
-        polling_interval: int = 2,
+        polling_interval: int = 10,
         callback=None
     ) -> Dict:
         """
@@ -686,7 +686,7 @@ class UtilsClient(BaseClient):
         """
         # Extract timeout parameters
         timeout_seconds = kwargs.pop("timeout_seconds", 60)
-        polling_interval = kwargs.pop("polling_interval", 2)
+        polling_interval = kwargs.pop("polling_interval", 10)
         callback = kwargs.pop("callback", None)
         
         # Start the job
