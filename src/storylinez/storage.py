@@ -1,6 +1,7 @@
 import os
 import json
 import requests
+import time
 from typing import Dict, List, Optional, Union, Any, Tuple, BinaryIO
 import mimetypes
 from urllib.parse import urljoin
@@ -252,18 +253,35 @@ class StorageClient(BaseClient):
         if not upload_link or not upload_id:
             raise Exception("Failed to generate upload link")
         
-        # Determine content type if not specified
-        content_type = kwargs.get("content_type")
-        if not content_type:
-            content_type = mimetypes.guess_type(file_path)[0] or 'application/octet-stream'
-        
-        # Use requests to upload the file
-        with open(file_path, 'rb') as file_data:
-            headers = {'Content-Type': content_type}
-            upload_response = requests.put(upload_link, data=file_data, headers=headers)
+        # Handle S3 presigned POST uploads (most common case)
+        if isinstance(upload_link, dict):
+            # S3 presigned POST format: {"url": "...", "fields": {...}}
+            s3_url = upload_link.get("url")
+            s3_fields = upload_link.get("fields", {})
             
-            if upload_response.status_code >= 400:
-                raise Exception(f"File upload failed with status {upload_response.status_code}: {upload_response.text}")
+            if not s3_url:
+                raise Exception("Invalid upload link format: missing URL")
+            
+            # Prepare multipart form data for S3 POST
+            with open(file_path, 'rb') as file_data:
+                # S3 requires the file field to be last in the form
+                files = {'file': (filename, file_data, s3_fields.get('Content-Type', 'application/octet-stream'))}
+                upload_response = requests.post(s3_url, data=s3_fields, files=files)
+                
+                if upload_response.status_code not in [200, 204]:
+                    raise Exception(f"File upload failed with status {upload_response.status_code}: {upload_response.text}")
+        else:
+            # Simple PUT upload (fallback for simple presigned URLs)
+            content_type = kwargs.get("content_type")
+            if not content_type:
+                content_type = mimetypes.guess_type(file_path)[0] or 'application/octet-stream'
+            
+            with open(file_path, 'rb') as file_data:
+                headers = {'Content-Type': content_type}
+                upload_response = requests.put(upload_link, data=file_data, headers=headers)
+                
+                if upload_response.status_code not in [200, 204]:
+                    raise Exception(f"File upload failed with status {upload_response.status_code}: {upload_response.text}")
         
         # Prepare completion data
         completion_data = {
@@ -375,9 +393,10 @@ class StorageClient(BaseClient):
                 )
                 summary["upload_status"] = "success"
                 file_id = (
-                    upload_result.get("file_id")
-                    or upload_result.get("id")
-                    or upload_result.get("data", {}).get("file_id")
+                    upload_result.get("file_id") or
+                    upload_result.get("id") or
+                    upload_result.get("file", {}).get("file_id") or
+                    upload_result.get("data", {}).get("file_id")
                 )
                 if not file_id:
                     raise Exception("No file_id returned after upload")
@@ -501,11 +520,31 @@ class StorageClient(BaseClient):
         upload_link = upload_info.get("upload_link")
         upload_id = upload_info.get("upload_id")
         
-        headers = {'Content-Type': content_type}
-        upload_response = requests.put(upload_link, data=file_data, headers=headers)
+        if not upload_link or not upload_id:
+            raise Exception("Failed to generate upload link")
         
-        if upload_response.status_code >= 400:
-            raise Exception(f"File upload failed with status {upload_response.status_code}: {upload_response.text}")
+        # Handle S3 presigned POST uploads (most common case)
+        if isinstance(upload_link, dict):
+            # S3 presigned POST format: {"url": "...", "fields": {...}}
+            s3_url = upload_link.get("url")
+            s3_fields = upload_link.get("fields", {})
+            
+            if not s3_url:
+                raise Exception("Invalid upload link format: missing URL")
+            
+            # Prepare multipart form data for S3 POST
+            files = {'file': (filename, file_data, s3_fields.get('Content-Type', content_type))}
+            upload_response = requests.post(s3_url, data=s3_fields, files=files)
+            
+            if upload_response.status_code not in [200, 204]:
+                raise Exception(f"File upload failed with status {upload_response.status_code}: {upload_response.text}")
+        else:
+            # Simple PUT upload (fallback for simple presigned URLs)
+            headers = {'Content-Type': content_type}
+            upload_response = requests.put(upload_link, data=file_data, headers=headers)
+            
+            if upload_response.status_code not in [200, 204]:
+                raise Exception(f"File upload failed with status {upload_response.status_code}: {upload_response.text}")
         
         # Prepare completion data
         completion_data = {
