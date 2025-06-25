@@ -126,7 +126,6 @@ class ToolsClient(BaseClient):
         return documents
     
     # Creative Brief Tool
-    
     def create_creative_brief(
         self, 
         name: str, 
@@ -220,7 +219,6 @@ class ToolsClient(BaseClient):
         return self._make_request("POST", f"{self.tools_url}/create", json_data=data)
     
     # Audience Research Tool
-    
     def create_audience_research(
         self,
         name: str, 
@@ -313,7 +311,6 @@ class ToolsClient(BaseClient):
         return self._make_request("POST", f"{self.tools_url}/create", json_data=data)
     
     # Video Plan Tool
-    
     def create_video_plan(
         self,
         name: str, 
@@ -406,7 +403,6 @@ class ToolsClient(BaseClient):
         return self._make_request("POST", f"{self.tools_url}/create", json_data=data)
     
     # Shotlist Tool
-    
     def create_shotlist(
         self,
         name: str, 
@@ -502,7 +498,6 @@ class ToolsClient(BaseClient):
         return self._make_request("POST", f"{self.tools_url}/create", json_data=data)
     
     # Ad Concept Tool
-    
     def create_ad_concept(
         self,
         name: str, 
@@ -612,7 +607,6 @@ class ToolsClient(BaseClient):
         return self._make_request("POST", f"{self.tools_url}/create", json_data=data)
     
     # Scene Transitions Tool
-    
     def create_scene_transitions(
         self,
         name: str, 
@@ -732,7 +726,6 @@ class ToolsClient(BaseClient):
         return self._make_request("POST", f"{self.tools_url}/create", json_data=data)
     
     # Scene Splitter Tool
-    
     def create_scene_splitter(
         self,
         name: str, 
@@ -799,7 +792,6 @@ class ToolsClient(BaseClient):
         return self._make_request("POST", f"{self.tools_url}/create", json_data=data)
     
     # Web Scraper Advanced Tool
-    
     def create_web_scraper_advanced(
         self,
         name: str,
@@ -886,7 +878,6 @@ class ToolsClient(BaseClient):
         return self._make_request("POST", f"{self.tools_url}/create", json_data=data)
     
     # Tool Management Methods
-    
     def get_tool(self, tool_id: str, include_job: bool = True, **kwargs) -> Dict:
         """
         Get details about a specific tool.
@@ -1139,7 +1130,6 @@ class ToolsClient(BaseClient):
         return self._make_request("POST", f"{self.tools_url}/redo", json_data=data)
         
     # --- Additional utility methods and workflows ---
-    
     def wait_for_tool_completion(
         self,
         tool_id: str,

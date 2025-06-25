@@ -50,6 +50,7 @@ def main():
     print("6. Check storage usage")
     print("7. Upload a directory recursively")
     print("8. Run all demos sequentially")
+    print("9. Bulk upload multiple files")
     print("0. Exit")
     
     choice = input("\nEnter your choice (0-8): ")
@@ -86,6 +87,8 @@ def main():
         if file_id:
             demo_file_analysis(client, file_id)
         demo_storage_usage(client)
+    elif choice == 9:
+        demo_upload_files_bulk(client)
     else:
         print("Invalid choice.")
 
@@ -141,6 +144,96 @@ def demo_file_upload(client):
     except Exception as e:
         print(f"\nError uploading file: {str(e)}")
         return None
+
+def demo_upload_files_bulk(client):
+    """Demo for bulk uploading multiple files using upload_and_process_files_bulk"""
+    print("\n=== Bulk Upload Multiple Files Demo ===")
+    file_paths_input = input("Enter file paths to upload (comma-separated): ")
+    file_paths = [p.strip() for p in file_paths_input.split(",") if p.strip()]
+    if not file_paths:
+        print("No file paths provided.")
+        return
+
+    # Prompt for all relevant upload parameters
+    folder_path = input("Enter target folder path (default: '/'): ") or "/"
+    context = input("Enter context for AI analysis (optional): ")
+    tags_input = input("Enter tags separated by commas (optional): ")
+    tags = [t.strip() for t in tags_input.split(",")] if tags_input else []
+
+    analyze_audio = input("Analyze audio in media? (y/n, default: y): ").lower() != 'n'
+    auto_company_details = input("Auto company details? (y/n, default: n): ").lower() == 'y'
+    company_details_id = input("Company details ID (optional): ") or None
+    deepthink = input("Enable DeepThink for detailed analysis? (y/n, default: n): ").lower() == 'y'
+    overdrive = input("Enable Overdrive mode? (y/n, default: n): ").lower() == 'y'
+    web_search = input("Enable web search during analysis? (y/n, default: n): ").lower() == 'y'
+    eco = input("Enable Eco mode? (y/n, default: n): ").lower() == 'y'
+    temperature_input = input("Set temperature (float, default: 0.7): ").strip()
+    try:
+        temperature = float(temperature_input) if temperature_input else 0.7
+    except ValueError:
+        temperature = 0.7
+    org_id = input("Organization ID (default from environment): ").strip() or None
+
+    polling_input = input("Enter polling interval in seconds (default 10): ").strip()
+    try:
+        polling_interval = int(polling_input) if polling_input else 10
+    except ValueError:
+        polling_interval = 10
+
+    print(f"\nStarting bulk upload with polling interval {polling_interval}s...\n")
+
+    def progress_callback(progress):
+        # Print status after each file is fully processed
+        if progress.get("status") in ("processed", "failed", "completed"):
+            print(
+                f"[{progress.get('status','').upper()}] "
+                f"File: {progress.get('file', 'N/A')}, "
+                f"Progress: {progress.get('progress', 0)}%, "
+                f"Done: {progress.get('done', 0)}, "
+                f"Failed: {progress.get('failed', 0)}, "
+                f"Remaining: {progress.get('remaining', 0)}"
+            )
+
+    try:
+        results = client.storage.upload_and_process_files_bulk(
+            file_paths=file_paths,
+            folder_path=folder_path,
+            context=context,
+            tags=tags,
+            analyze_audio=analyze_audio,
+            auto_company_details=auto_company_details,
+            company_details_id=company_details_id,
+            deepthink=deepthink,
+            overdrive=overdrive,
+            web_search=web_search,
+            eco=eco,
+            temperature=temperature,
+            org_id=org_id,
+            polling_interval=polling_interval,
+            progress_callback=progress_callback
+        )
+    except Exception as e:
+        print(f"Exception during bulk upload: {e}")
+        return
+
+    # Print summary
+    if results is not None:
+        print("\nBulk upload complete.")
+        print(f"Total files: {len(file_paths)}")
+        print(f"Uploaded: {results.get('done', 0)}")
+        print(f"Failed: {results.get('failed', 0)}")
+        print(f"Details: {results.get('details', [])}")
+        print(f"Total files attempted: {len(results)}")
+        success_count = sum(1 for r in results if isinstance(r, dict) and r.get('file'))
+        error_count = len(results) - success_count
+        print(f"Successful uploads: {success_count}")
+        print(f"Failed uploads: {error_count}")
+        print("Summary:")
+        for i, r in enumerate(results):
+            if isinstance(r, dict) and r.get('file'):
+                print(f"  [{i+1}] Success: {r['file'].get('file_id', 'N/A')}")
+            else:
+                print(f"  [{i+1}] Error: {r}")
 
 def demo_create_folders(client):
     """Demo for creating folder structure"""

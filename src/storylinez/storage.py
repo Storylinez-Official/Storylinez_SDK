@@ -78,6 +78,48 @@ class StorageClient(BaseClient):
         if path != "/" and path.endswith("/"):
             path = path[:-1]
         return path
+
+    def wait_for_file_processing(
+        self,
+        file_id: str,
+        max_wait_time: int = 900,
+        polling_interval: int = 10
+    ) -> dict:
+        """
+        Wait for a file to finish processing, with timeout.
+
+        Args:
+            file_id: ID of the file to wait for
+            max_wait_time: Maximum time to wait in seconds (default 120)
+            polling_interval: Time between status checks in seconds (default 10)
+
+        Returns:
+            The final file analysis dict if completed
+
+        Raises:
+            TimeoutError: If the file doesn't complete within max_wait_time
+            ValueError: If file_id is invalid or processing failed
+        """
+        import time
+
+        if not file_id:
+            raise ValueError("file_id is required")
+
+        start_time = time.time()
+        elapsed_time = 0
+
+        while elapsed_time < max_wait_time:
+            analysis = self.get_file_analysis(file_id)
+            status = analysis.get("status", "").upper()
+            if status == "COMPLETED":
+                return analysis
+            if status == "FAILED":
+                error_message = analysis.get("error", "File processing failed")
+                raise ValueError(f"File processing failed: {error_message}")
+            time.sleep(polling_interval)
+            elapsed_time = time.time() - start_time
+
+        raise TimeoutError(f"File processing did not complete within {max_wait_time} seconds")
     
     def _validate_file_exists(self, file_path: str) -> int:
         """Check if file exists and return its size"""
@@ -142,20 +184,20 @@ class StorageClient(BaseClient):
         return self._make_request("GET", f"{self.storage_url}/upload/create_link", params=params)
     
     def upload_file(self, 
-                  file_path: str, 
-                  folder_path: str = "/", 
-                  context: str = "", 
-                  tags: List[str] = None,
-                  analyze_audio: bool = True,
-                  auto_company_details: bool = True,
-                  company_details_id: str = "",
-                  deepthink: bool = False,
-                  overdrive: bool = False,
-                  web_search: bool = False,
-                  eco: bool = False,
-                  temperature: float = 0.7,
-                  org_id: str = None,
-                  **kwargs) -> Dict:
+                file_path: str, 
+                folder_path: str = "/", 
+                context: str = "", 
+                tags: List[str] = None,
+                analyze_audio: bool = True,
+                auto_company_details: bool = True,
+                company_details_id: str = "",
+                deepthink: bool = False,
+                overdrive: bool = False,
+                web_search: bool = False,
+                eco: bool = False,
+                temperature: float = 0.7,
+                org_id: str = None,
+                **kwargs) -> Dict:
         """
         Upload a file to Storylinez storage.
         This is a convenience method that handles both the link generation and upload.
@@ -249,23 +291,148 @@ class StorageClient(BaseClient):
         # Mark upload as complete and start processing
         return self._make_request("POST", f"{self.storage_url}/upload/complete", json_data=completion_data)
     
+    def upload_and_process_files_bulk(
+        self,
+        file_paths: list,
+        folder_path: str = "/",
+        context: str = "",
+        tags: list = None,
+        analyze_audio: bool = True,
+        auto_company_details: bool = True,
+        company_details_id: str = "",
+        deepthink: bool = False,
+        overdrive: bool = False,
+        web_search: bool = False,
+        eco: bool = False,
+        temperature: float = 0.7,
+        org_id: str = None,
+        progress_callback=None,
+        poll_interval: int = 10,
+        **kwargs
+    ):
+        """
+        Upload and process multiple files in bulk to Storylinez storage.
+
+        Each file is uploaded and processed using the same parameters as `upload_file`.
+        Progress and results are reported for each file.
+
+        Args:
+            file_paths (list): List of file paths to upload.
+            folder_path (str): Target folder path (defaults to root).
+            context (str): Context for AI processing.
+            tags (list): Tags for categorization.
+            analyze_audio (bool): Whether to analyze audio in media files.
+            auto_company_details (bool): Whether to use company details for analysis.
+            company_details_id (str): ID of company details to use.
+            deepthink (bool): Enable deep analysis.
+            overdrive (bool): Use more computational resources.
+            web_search (bool): Enable web search for analysis.
+            eco (bool): Use eco-friendly processing.
+            temperature (float): AI temperature (0.0-1.0).
+            org_id (str): Organization ID (uses default if not provided).
+            progress_callback (callable): Called after each file is fully processed with a summary dict.
+            poll_interval (int): Seconds between polling processing status (default 10).
+            **kwargs: Additional parameters for backwards compatibility.
+
+        Returns:
+            List of results (success or error info for each file).
+        """
+        import time
+
+        results = []
+        total = len(file_paths)
+        done = 0
+        failed = 0
+
+        for idx, file_path in enumerate(file_paths):
+            summary = {
+                "current_index": idx + 1,
+                "total": total,
+                "file_path": file_path,
+                "upload_status": None,
+                "processing_status": None,
+                "result": None,
+                "done": done,
+                "failed": failed,
+                "remaining": total - (done + failed)
+            }
+            try:
+                upload_result = self.upload_file(
+                    file_path,
+                    folder_path=folder_path,
+                    context=context,
+                    tags=tags,
+                    analyze_audio=analyze_audio,
+                    auto_company_details=auto_company_details,
+                    company_details_id=company_details_id,
+                    deepthink=deepthink,
+                    overdrive=overdrive,
+                    web_search=web_search,
+                    eco=eco,
+                    temperature=temperature,
+                    org_id=org_id,
+                    **kwargs
+                )
+                summary["upload_status"] = "success"
+                file_id = (
+                    upload_result.get("file_id")
+                    or upload_result.get("id")
+                    or upload_result.get("data", {}).get("file_id")
+                )
+                if not file_id:
+                    raise Exception("No file_id returned after upload")
+                # Poll processing status
+                try:
+                    job_result = self.wait_for_file_processing(
+                        file_id,
+                        max_wait_time=kwargs.get("max_wait_time", 900),
+                        polling_interval=poll_interval
+                    )
+                    status = job_result.get("status", "").upper()
+                except Exception as e:
+                    job_result = {"status": "FAILED", "error": str(e)}
+                    status = "FAILED"
+                summary["processing_status"] = status
+                summary["result"] = job_result
+                results.append({"file_path": file_path, "result": job_result, "success": status == "COMPLETED"})
+                if status == "COMPLETED":
+                    done += 1
+                else:
+                    failed += 1
+                summary["upload_status"] = "success"
+            except Exception as e:
+                summary["upload_status"] = "failed"
+                summary["processing_status"] = "failed"
+                summary["result"] = str(e)
+                results.append({"file_path": file_path, "error": str(e), "success": False})
+                failed += 1
+            summary["done"] = done
+            summary["failed"] = failed
+            summary["remaining"] = total - (done + failed)
+            if progress_callback:
+                try:
+                    progress_callback(summary)
+                except Exception:
+                    pass
+        return results
+
     def upload_file_data(self,
-                       file_data: BinaryIO,
-                       filename: str,
-                       folder_path: str = "/",
-                       content_type: str = None,
-                       file_size: int = None,
-                       context: str = "",
-                       tags: List[str] = None,
-                       analyze_audio: bool = True,
-                       auto_company_details: bool = True,
-                       company_details_id: str = "",
-                       deepthink: bool = False,
-                       overdrive: bool = False,
-                       web_search: bool = False,
-                       eco: bool = False,
-                       temperature: float = 0.7,
-                       org_id: str = None) -> Dict:
+                    file_data: BinaryIO,
+                    filename: str,
+                    folder_path: str = "/",
+                    content_type: str = None,
+                    file_size: int = None,
+                    context: str = "",
+                    tags: List[str] = None,
+                    analyze_audio: bool = True,
+                    auto_company_details: bool = True,
+                    company_details_id: str = "",
+                    deepthink: bool = False,
+                    overdrive: bool = False,
+                    web_search: bool = False,
+                    eco: bool = False,
+                    temperature: float = 0.7,
+                    org_id: str = None) -> Dict:
         """
         Upload file data directly from memory.
         
@@ -363,22 +530,22 @@ class StorageClient(BaseClient):
         return self._make_request("POST", f"{self.storage_url}/upload/complete", json_data=completion_data)
     
     def mark_upload_complete(self, 
-                           upload_id: str, 
-                           org_id: str = None,
-                           filename: str = None,
-                           mimetype: str = None,
-                           folder_path: str = None,
-                           context: str = None,
-                           tags: List[str] = None,
-                           analyze_audio: bool = None,
-                           auto_company_details: bool = None,
-                           company_details_id: str = None,
-                           deepthink: bool = None,
-                           overdrive: bool = None,
-                           web_search: bool = None,
-                           eco: bool = None,
-                           temperature: float = None,
-                           **kwargs) -> Dict:
+                        upload_id: str, 
+                        org_id: str = None,
+                        filename: str = None,
+                        mimetype: str = None,
+                        folder_path: str = None,
+                        context: str = None,
+                        tags: List[str] = None,
+                        analyze_audio: bool = None,
+                        auto_company_details: bool = None,
+                        company_details_id: str = None,
+                        deepthink: bool = None,
+                        overdrive: bool = None,
+                        web_search: bool = None,
+                        eco: bool = None,
+                        temperature: float = None,
+                        **kwargs) -> Dict:
         """
         Mark an upload as complete after uploading to the pre-signed URL.
         
@@ -466,7 +633,6 @@ class StorageClient(BaseClient):
         return self._make_request("POST", f"{self.storage_url}/upload/complete", json_data=data)
     
     # Folder Methods
-
     def get_folder_contents(self, 
                           path: str = "/", 
                           recursive: bool = False, 
@@ -606,9 +772,9 @@ class StorageClient(BaseClient):
         return self._make_request("PUT", f"{self.storage_url}/folder/rename", json_data=data)
     
     def get_folder_tree(self, 
-                      path: str = "/", 
-                      include_protected: bool = False,
-                      org_id: str = None) -> Dict:
+                    path: str = "/", 
+                    include_protected: bool = False,
+                    org_id: str = None) -> Dict:
         """
         Get a hierarchical tree of folders and files.
         
@@ -635,9 +801,9 @@ class StorageClient(BaseClient):
         return self._make_request("GET", f"{self.storage_url}/tree", params=params)
     
     def list_folders(self, 
-                   path: str = "/", 
-                   recursive: bool = False, 
-                   org_id: str = None) -> Dict:
+                path: str = "/", 
+                recursive: bool = False, 
+                org_id: str = None) -> Dict:
         """
         List folders under a specific path.
         
@@ -800,7 +966,6 @@ class StorageClient(BaseClient):
         return self._make_request("POST", f"{self.storage_url}/folder/vector-search", params=params, json_data=data)
     
     # File Methods
-    
     def get_file_analysis(self, 
                         file_id: str, 
                         detailed: bool = True,
