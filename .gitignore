@@ -17,3 +17,6 @@ test*.ipynb
 
 upload.bat
 _git_push.bat
+_auto_git_summary.bat
+
+reports/
