@@ -28,6 +28,7 @@ Version: 1.0.0
 import os
 import glob
 import time
+import math
 from pathlib import Path
 from dotenv import load_dotenv
 import ultraprint.common as p
@@ -265,52 +266,194 @@ def display_scan_results(scan_result):
             p.n()
 
 def progress_callback(summary):
-    """Callback function to display upload progress"""
-    current = summary['current_index']
-    total = summary['total']
-    done = summary['done']
-    failed = summary['failed']
-    remaining = summary['remaining']
-    
-    file_name = os.path.basename(summary['file_path'])
-    upload_status = summary.get('upload_status', 'uploading')
-    processing_status = summary.get('processing_status', 'processing')
-    
-    # Clear the line and show progress
-    progress_bar = "█" * int((current / total) * 20)
-    remaining_bar = "░" * (20 - int((current / total) * 20))
-    
-    p.n()
-    p.cyan(f"📤 Progress: [{progress_bar}{remaining_bar}] {current}/{total}")
-    p.lgray(f"   Current: {file_name}")
-    p.lgray(f"   Upload: {upload_status} | Processing: {processing_status}")
-    p.green(f"   ✅ Completed: {done} | ❌ Failed: {failed} | ⏳ Remaining: {remaining}")
-    
-    if summary.get('result') and isinstance(summary['result'], dict):
-        if summary['result'].get('status') == 'COMPLETED':
-            p.green(f"   ✅ {file_name} processed successfully")
-        elif summary['result'].get('status') == 'FAILED':
-            error = summary['result'].get('error', 'Unknown error')
-            p.red(f"   ❌ {file_name} failed: {error}")
-    
-    # Add detailed error info for debugging
-    if upload_status == 'failed':
-        error_detail = summary.get('result', 'Unknown upload error')
-        if isinstance(error_detail, str) and len(error_detail) > 100:
-            # Truncate very long error messages
-            error_detail = error_detail[:100] + "..."
-        p.red(f"   Upload Error: {error_detail}")
-    
-    # Show any upload errors with more detail
-    if upload_status == 'failed' and isinstance(summary.get('result'), str):
-        error_msg = summary['result']
-        if "No connection adapters" in error_msg:
-            p.red(f"   🔧 Connection issue detected - this has been fixed in the latest version")
+    """Enhanced callback function to display detailed upload progress"""
+    try:
+        # Handle the new enhanced progress reporting structure
+        phase = summary.get('phase', 'unknown') if isinstance(summary, dict) else 'unknown'
+        
+        # Handle different phases of progress
+        if phase == "file_start":
+            current = summary.get('current_index', 0)
+            total = summary.get('total', 1)
+            filename = summary.get('filename', 'unknown')
+            overall_progress = summary.get('overall_progress_percent', 0)
+            
+            # Create progress bar
+            progress_bar = "█" * int((overall_progress / 100) * 20)
+            remaining_bar = "░" * (20 - int((overall_progress / 100) * 20))
+            
+            p.n()
+            p.cyan(f"🚀 Starting file {current}/{total}: {filename}")
+            p.cyan(f"📊 Overall: [{progress_bar}{remaining_bar}] {overall_progress:.1f}%")
+        
+        elif phase == "upload_start":
+            filename = summary.get('filename', 'unknown')
+            p.yellow(f"📤 Uploading: {filename}")
+        
+        elif phase == "upload_complete":
+            filename = summary.get('filename', 'unknown')
+            duration = summary.get('upload_duration', 0)
+            p.green(f"✅ Upload complete: {filename} ({duration:.1f}s)")
+        
+        elif phase == "processing_start":
+            filename = summary.get('filename', 'unknown')
+            file_id = summary.get('file_id', 'unknown')
+            p.yellow(f"🔄 Processing started: {filename}")
+            p.lgray(f"   File ID: {file_id}")
+        
+        elif phase == "polling":
+            filename = summary.get('filename', 'unknown')
+            status = summary.get('status', 'UNKNOWN')
+            poll_count = summary.get('poll_count', 0)
+            progress = summary.get('file_progress_percent', 0)
+            elapsed = summary.get('elapsed_time', 0)
+            
+            # Create progress bar for file processing
+            progress_bar = "█" * int((progress / 100) * 15)
+            remaining_bar = "░" * (15 - int((progress / 100) * 15))
+            
+            p.yellow(f"⏳ Processing: [{progress_bar}{remaining_bar}] {progress:.0f}% | Poll #{poll_count} | {elapsed:.0f}s")
+            
+            # Show analysis status if available
+            analysis_data = summary.get('analysis_data', {})
+            if analysis_data and status:
+                p.lgray(f"   Status: {status}")
+        
+        elif phase == "polling_error":
+            error = summary.get('error', 'Unknown error')
+            poll_count = summary.get('poll_count', 0)
+            p.orange(f"⚠️  Polling error #{poll_count}: {error}")
+        
+        elif phase == "file_complete":
+            filename = summary.get('filename', 'unknown')
+            success = summary.get('success', False)
+            total_duration = summary.get('total_file_duration', 0)
+            overall_progress = summary.get('overall_progress_percent', 0)
+            
+            # Create progress bar
+            progress_bar = "█" * int((overall_progress / 100) * 20)
+            remaining_bar = "░" * (20 - int((overall_progress / 100) * 20))
+            
+            if success:
+                p.green(f"✅ {filename} completed successfully ({total_duration:.1f}s)")
+            else:
+                p.red(f"❌ {filename} failed ({total_duration:.1f}s)")
+            
+            p.cyan(f"📊 Overall: [{progress_bar}{remaining_bar}] {overall_progress:.1f}%")
+        
+        elif phase == "file_error":
+            filename = summary.get('filename', 'unknown')
+            error = summary.get('error', 'Unknown error')
+            overall_progress = summary.get('overall_progress_percent', 0)
+            
+            # Truncate long error messages
+            if len(error) > 100:
+                error = error[:100] + "..."
+            
+            p.red(f"❌ {filename} failed: {error}")
+            
+            # Create progress bar
+            progress_bar = "█" * int((overall_progress / 100) * 20)
+            remaining_bar = "░" * (20 - int((overall_progress / 100) * 20))
+            p.cyan(f"📊 Overall: [{progress_bar}{remaining_bar}] {overall_progress:.1f}%")
+        
+        elif phase == "bulk_complete":
+            total = summary.get('total', 0)
+            done = summary.get('done', 0)
+            failed = summary.get('failed', 0)
+            success_rate = summary.get('success_rate', 0)
+            total_duration = summary.get('total_duration', 0)
+            
+            p.n()
+            p.green_bg(" BULK UPLOAD COMPLETE! ")
+            p.n()
+            p.green(f"📊 Results: {done}/{total} files successful ({success_rate:.1f}%)")
+            if failed > 0:
+                p.red(f"❌ Failed: {failed} files")
+            p.lgray(f"⏱️  Total time: {total_duration:.1f} seconds")
+            p.n()
+        
         else:
-            # Truncate very long error messages
-            if len(error_msg) > 200:
-                error_msg = error_msg[:200] + "..."
-            p.red(f"   ❌ Upload error: {error_msg}")
+            # Fallback for legacy or unknown phase - handle old callback format
+            current = summary.get('current_index', 0) if isinstance(summary, dict) else 0
+            total = summary.get('total', 1) if isinstance(summary, dict) else 1
+            done = summary.get('done', 0) if isinstance(summary, dict) else 0
+            failed = summary.get('failed', 0) if isinstance(summary, dict) else 0
+            remaining = summary.get('remaining', 0) if isinstance(summary, dict) else 0
+            
+            file_path = summary.get('file_path', 'unknown') if isinstance(summary, dict) else 'unknown'
+            file_name = os.path.basename(file_path) if file_path else 'unknown'
+            upload_status = summary.get('upload_status', 'uploading') if isinstance(summary, dict) else 'uploading'
+            processing_status = summary.get('processing_status', 'processing') if isinstance(summary, dict) else 'processing'
+            result = summary.get('result') if isinstance(summary, dict) else None
+            
+            # Create progress bar with safe division
+            if total > 0:
+                progress_bar = "█" * int((current / total) * 20)
+                remaining_bar = "░" * (20 - int((current / total) * 20))
+            else:
+                progress_bar = "░" * 20
+                remaining_bar = ""
+            
+            p.n()
+            p.cyan(f"📤 Progress: [{progress_bar}{remaining_bar}] {current}/{total}")
+            p.lgray(f"   Current: {file_name}")
+            p.lgray(f"   Upload: {upload_status} | Processing: {processing_status}")
+            p.green(f"   ✅ Completed: {done} | ❌ Failed: {failed} | ⏳ Remaining: {remaining}")
+            
+            # Handle upload and processing status
+            if upload_status == 'failed':
+                # Upload failed
+                error_detail = result if isinstance(result, str) else str(result) if result else 'Unknown upload error'
+                if len(error_detail) > 100:
+                    error_detail = error_detail[:100] + "..."
+                p.red(f"   ❌ {file_name} upload failed: {error_detail}")
+            
+            elif upload_status == 'success':
+                # Upload succeeded, check processing status
+                # The wait_for_file_processing function returns the analysis dict when complete
+                # Status is nested under analysis_data
+                if isinstance(result, dict):
+                    analysis_data = result.get('analysis_data', {})
+                    result_status = analysis_data.get('status', '').upper()
+                    if result_status == 'COMPLETED':
+                        p.green(f"   ✅ {file_name} completed successfully")
+                    elif result_status == 'FAILED':
+                        error = analysis_data.get('error', 'Processing failed')
+                        p.red(f"   ❌ {file_name} processing failed: {error}")
+                    elif processing_status == 'COMPLETED':
+                        p.green(f"   ✅ {file_name} completed successfully")
+                    elif processing_status == 'FAILED':
+                        error = str(result) if result else 'Processing failed'
+                        p.red(f"   ❌ {file_name} processing failed: {error}")
+                    elif processing_status in ['PROCESSING', 'processing']:
+                        p.yellow(f"   ⏳ {file_name} still processing...")
+                    else:
+                        # Processing status is something else, show what we have
+                        p.lgray(f"   ℹ️ {file_name} status: {processing_status}")
+                elif processing_status == 'COMPLETED':
+                    p.green(f"   ✅ {file_name} completed successfully")
+                elif processing_status == 'FAILED':
+                    if isinstance(result, str) and ('TimeoutError' in result or 'timeout' in result.lower()):
+                        error = "Processing timed out (file may still complete in background)"
+                    else:
+                        error = str(result) if result else 'Processing failed'
+                    p.red(f"   ❌ {file_name} processing failed: {error}")
+                elif processing_status in ['PROCESSING', 'processing']:
+                    p.yellow(f"   ⏳ {file_name} still processing...")
+                else:
+                    # Processing status is something else, show what we have
+                    p.lgray(f"   ℹ️ {file_name} status: {processing_status}")
+            
+            else:
+                # Still uploading or unknown status
+                p.yellow(f"   ⏳ {file_name} uploading...")
+    
+    except Exception as e:
+        # If there's any error in the callback, at least show something
+        print(f"ERROR in progress callback: {str(e)}")
+        print(f"Summary data: {summary}")
+        p.red(f"   ❌ Progress callback error: {str(e)}")
 
 def main_menu():
     """Display main menu and get user choice"""
@@ -664,20 +807,26 @@ def configure_upload_settings():
     try:
         max_wait_time = int(get_input(
             "Max wait time per file (seconds)",
-            default="900",
-            help_text="Maximum time to wait for each file to process"
+            default="1800",
+            help_text="Maximum time to wait for each file to process (recommended: 1800-3600 for large files)"
         ))
+        if max_wait_time < 300:
+            print_warning("Very short timeout may cause false failures. Minimum recommended: 300 seconds.")
+            max_wait_time = max(max_wait_time, 300)
     except ValueError:
-        max_wait_time = 900
+        max_wait_time = 1800
     
     try:
         poll_interval = int(get_input(
             "Check status every X seconds",
-            default="10",
-            help_text="How often to check if processing is complete"
+            default="15",
+            help_text="How often to check if processing is complete (recommended: 15-30 seconds)"
         ))
+        if poll_interval < 5:
+            print_warning("Very frequent polling may cause API rate limits. Minimum recommended: 5 seconds.")
+            poll_interval = max(poll_interval, 5)
     except ValueError:
-        poll_interval = 10
+        poll_interval = 15
     
     return {
         'context': context,
@@ -784,6 +933,11 @@ def perform_bulk_upload(client, file_paths, destination_path, upload_settings):
         # Prepare file paths list
         file_paths_list = [f['path'] for f in file_paths]
         
+        # Debug output
+        print(f"DEBUG: Starting upload of {len(file_paths_list)} files")
+        print(f"DEBUG: First file: {file_paths_list[0] if file_paths_list else 'None'}")
+        print(f"DEBUG: Upload settings: {upload_settings}")
+        
         # Start bulk upload
         results = client.storage.upload_and_process_files_bulk(
             file_paths=file_paths_list,
@@ -802,6 +956,9 @@ def perform_bulk_upload(client, file_paths, destination_path, upload_settings):
             poll_interval=upload_settings['poll_interval'],
             max_wait_time=upload_settings['max_wait_time']
         )
+        
+        print(f"DEBUG: Upload completed, results type: {type(results)}")
+        print(f"DEBUG: Results length: {len(results) if hasattr(results, '__len__') else 'N/A'}")
         
         # Final results
         end_time = time.time()

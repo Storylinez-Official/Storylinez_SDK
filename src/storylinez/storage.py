@@ -84,15 +84,17 @@ class StorageClient(BaseClient):
         self,
         file_id: str,
         max_wait_time: int = 900,
-        polling_interval: int = 10
+        polling_interval: int = 10,
+        progress_callback=None
     ) -> dict:
         """
-        Wait for a file to finish processing, with timeout.
+        Wait for a file to finish processing, with timeout and optional progress updates.
 
         Args:
             file_id: ID of the file to wait for
-            max_wait_time: Maximum time to wait in seconds (default 120)
+            max_wait_time: Maximum time to wait in seconds (default 900)
             polling_interval: Time between status checks in seconds (default 10)
+            progress_callback: Optional callback for polling updates
 
         Returns:
             The final file analysis dict if completed
@@ -108,15 +110,59 @@ class StorageClient(BaseClient):
 
         start_time = time.time()
         elapsed_time = 0
+        poll_count = 0
 
         while elapsed_time < max_wait_time:
-            analysis = self.get_file_analysis(file_id)
-            status = analysis.get("status", "").upper()
-            if status == "COMPLETED":
-                return analysis
-            if status == "FAILED":
-                error_message = analysis.get("error", "File processing failed")
-                raise ValueError(f"File processing failed: {error_message}")
+            poll_count += 1
+            
+            try:
+                analysis = self.get_file_analysis(file_id)
+                # Status is nested under analysis_data
+                analysis_data = analysis.get("analysis_data", {})
+                status = analysis_data.get("status", "").upper()
+                
+                # Provide polling callback update
+                if progress_callback:
+                    polling_update = {
+                        "phase": "polling",
+                        "file_id": file_id,
+                        "status": status,
+                        "poll_count": poll_count,
+                        "elapsed_time": elapsed_time,
+                        "remaining_time": max_wait_time - elapsed_time,
+                        "progress_percent": min(85, (elapsed_time / max_wait_time) * 100) if status not in ["COMPLETED", "FAILED"] else 100,
+                        "timestamp": time.time(),
+                        "analysis_data": analysis_data
+                    }
+                    try:
+                        progress_callback(polling_update)
+                    except Exception:
+                        pass  # Don't let callback errors break the polling
+                
+                if status == "COMPLETED":
+                    return analysis
+                if status == "FAILED":
+                    error_message = analysis_data.get("error", "File processing failed")
+                    raise ValueError(f"File processing failed: {error_message}")
+                    
+            except Exception as e:
+                if "File processing failed:" in str(e):
+                    raise  # Re-raise processing failures
+                # For other errors (network, etc.), continue polling
+                if progress_callback:
+                    error_update = {
+                        "phase": "polling_error",
+                        "file_id": file_id,
+                        "error": str(e),
+                        "poll_count": poll_count,
+                        "elapsed_time": elapsed_time,
+                        "timestamp": time.time()
+                    }
+                    try:
+                        progress_callback(error_update)
+                    except Exception:
+                        pass
+                
             time.sleep(polling_interval)
             elapsed_time = time.time() - start_time
 
@@ -140,7 +186,6 @@ class StorageClient(BaseClient):
         return str(value).lower()
     
     # File Upload Methods
-    
     def generate_upload_link(self, 
                            filename: str, 
                            file_size: int = 0, 
@@ -329,10 +374,14 @@ class StorageClient(BaseClient):
         **kwargs
     ):
         """
-        Upload and process multiple files in bulk to Storylinez storage.
+        Upload and process multiple files in bulk to Storylinez storage with enhanced progress reporting.
 
         Each file is uploaded and processed using the same parameters as `upload_file`.
-        Progress and results are reported for each file.
+        Progress and results are reported at multiple stages for each file, including:
+        - Upload start/completion
+        - Processing start
+        - Polling updates during processing
+        - Final completion
 
         Args:
             file_paths (list): List of file paths to upload.
@@ -348,7 +397,7 @@ class StorageClient(BaseClient):
             eco (bool): Use eco-friendly processing.
             temperature (float): AI temperature (0.0-1.0).
             org_id (str): Organization ID (uses default if not provided).
-            progress_callback (callable): Called after each file is fully processed with a summary dict.
+            progress_callback (callable): Called at various stages with detailed progress info.
             poll_interval (int): Seconds between polling processing status (default 10).
             **kwargs: Additional parameters for backwards compatibility.
 
@@ -361,20 +410,61 @@ class StorageClient(BaseClient):
         total = len(file_paths)
         done = 0
         failed = 0
+        start_time = time.time()
 
         for idx, file_path in enumerate(file_paths):
+            file_start_time = time.time()
+            filename = os.path.basename(file_path)
+            
+            # Initial file start callback
+            if progress_callback:
+                start_summary = {
+                    "phase": "file_start",
+                    "current_index": idx + 1,
+                    "total": total,
+                    "file_path": file_path,
+                    "filename": filename,
+                    "done": done,
+                    "failed": failed,
+                    "remaining": total - (done + failed),
+                    "overall_progress_percent": (idx / total) * 100,
+                    "timestamp": file_start_time,
+                    "elapsed_total_time": file_start_time - start_time
+                }
+                try:
+                    progress_callback(start_summary)
+                except Exception:
+                    pass
+            
             summary = {
                 "current_index": idx + 1,
                 "total": total,
                 "file_path": file_path,
+                "filename": filename,
                 "upload_status": None,
                 "processing_status": None,
                 "result": None,
                 "done": done,
                 "failed": failed,
-                "remaining": total - (done + failed)
+                "remaining": total - (done + failed),
+                "file_start_time": file_start_time,
+                "overall_start_time": start_time
             }
+            
             try:
+                # Upload phase callback
+                if progress_callback:
+                    upload_start_summary = {
+                        **summary,
+                        "phase": "upload_start",
+                        "progress_percent": 0,
+                        "timestamp": time.time()
+                    }
+                    try:
+                        progress_callback(upload_start_summary)
+                    except Exception:
+                        pass
+                
                 upload_result = self.upload_file(
                     file_path,
                     folder_path=folder_path,
@@ -391,48 +481,177 @@ class StorageClient(BaseClient):
                     org_id=org_id,
                     **kwargs
                 )
+                
                 summary["upload_status"] = "success"
+                upload_end_time = time.time()
+                
+                # Upload completion callback
+                if progress_callback:
+                    upload_complete_summary = {
+                        **summary,
+                        "phase": "upload_complete",
+                        "progress_percent": 25,
+                        "upload_duration": upload_end_time - file_start_time,
+                        "timestamp": upload_end_time,
+                        "upload_result": upload_result
+                    }
+                    try:
+                        progress_callback(upload_complete_summary)
+                    except Exception:
+                        pass
+                
+                # Extract file_id for processing
                 file_id = (
                     upload_result.get("file_id") or
                     upload_result.get("id") or
                     upload_result.get("file", {}).get("file_id") or
                     upload_result.get("data", {}).get("file_id")
                 )
+                
                 if not file_id:
                     raise Exception("No file_id returned after upload")
-                # Poll processing status
+                
+                # Processing start callback
+                if progress_callback:
+                    processing_start_summary = {
+                        **summary,
+                        "phase": "processing_start",
+                        "file_id": file_id,
+                        "progress_percent": 30,
+                        "timestamp": time.time()
+                    }
+                    try:
+                        progress_callback(processing_start_summary)
+                    except Exception:
+                        pass
+                
+                # Create a nested progress callback for polling updates
+                def polling_progress_callback(polling_update):
+                    if progress_callback:
+                        enhanced_polling_update = {
+                            **summary,
+                            **polling_update,
+                            "overall_progress_percent": ((idx + 0.5) / total) * 100,
+                            "file_progress_percent": min(90, 30 + (polling_update.get("progress_percent", 0) * 0.6))
+                        }
+                        try:
+                            progress_callback(enhanced_polling_update)
+                        except Exception:
+                            pass
+                
+                # Poll processing status with enhanced callback
                 try:
                     job_result = self.wait_for_file_processing(
                         file_id,
                         max_wait_time=kwargs.get("max_wait_time", 900),
-                        polling_interval=poll_interval
+                        polling_interval=poll_interval,
+                        progress_callback=polling_progress_callback
                     )
-                    status = job_result.get("status", "").upper()
+                    
+                    # Extract status from nested analysis_data
+                    analysis_data = job_result.get("analysis_data", {})
+                    status = analysis_data.get("status", "").upper()
+                    
                 except Exception as e:
-                    job_result = {"status": "FAILED", "error": str(e)}
+                    job_result = {"status": "FAILED", "error": str(e), "analysis_data": {"status": "FAILED", "error": str(e)}}
                     status = "FAILED"
+                
+                processing_end_time = time.time()
                 summary["processing_status"] = status
                 summary["result"] = job_result
-                results.append({"file_path": file_path, "result": job_result, "success": status == "COMPLETED"})
+                summary["processing_duration"] = processing_end_time - upload_end_time
+                summary["total_file_duration"] = processing_end_time - file_start_time
+                
+                # Final file completion callback
+                if progress_callback:
+                    completion_summary = {
+                        **summary,
+                        "phase": "file_complete",
+                        "progress_percent": 100,
+                        "success": status == "COMPLETED",
+                        "timestamp": processing_end_time,
+                        "overall_progress_percent": ((idx + 1) / total) * 100,
+                        "elapsed_total_time": processing_end_time - start_time
+                    }
+                    try:
+                        progress_callback(completion_summary)
+                    except Exception:
+                        pass
+                
+                # Update counters and store result
+                results.append({
+                    "file_path": file_path,
+                    "filename": filename,
+                    "result": job_result,
+                    "success": status == "COMPLETED",
+                    "file_id": file_id,
+                    "upload_duration": upload_end_time - file_start_time,
+                    "processing_duration": processing_end_time - upload_end_time,
+                    "total_duration": processing_end_time - file_start_time
+                })
+                
                 if status == "COMPLETED":
                     done += 1
                 else:
                     failed += 1
-                summary["upload_status"] = "success"
+                    
             except Exception as e:
+                error_time = time.time()
                 summary["upload_status"] = "failed"
                 summary["processing_status"] = "failed"
                 summary["result"] = str(e)
-                results.append({"file_path": file_path, "error": str(e), "success": False})
+                summary["error_duration"] = error_time - file_start_time
+                
+                # Error callback
+                if progress_callback:
+                    error_summary = {
+                        **summary,
+                        "phase": "file_error",
+                        "error": str(e),
+                        "success": False,
+                        "timestamp": error_time,
+                        "overall_progress_percent": ((idx + 1) / total) * 100,
+                        "elapsed_total_time": error_time - start_time
+                    }
+                    try:
+                        progress_callback(error_summary)
+                    except Exception:
+                        pass
+                
+                results.append({
+                    "file_path": file_path,
+                    "filename": filename,
+                    "error": str(e),
+                    "success": False,
+                    "error_duration": error_time - file_start_time
+                })
                 failed += 1
+            
+            # Update summary counters for next iteration
             summary["done"] = done
             summary["failed"] = failed
             summary["remaining"] = total - (done + failed)
-            if progress_callback:
-                try:
-                    progress_callback(summary)
-                except Exception:
-                    pass
+
+        # Final bulk completion callback
+        total_end_time = time.time()
+        if progress_callback:
+            final_summary = {
+                "phase": "bulk_complete",
+                "total": total,
+                "done": done,
+                "failed": failed,
+                "success_rate": (done / total) * 100 if total > 0 else 0,
+                "total_duration": total_end_time - start_time,
+                "average_file_duration": (total_end_time - start_time) / total if total > 0 else 0,
+                "timestamp": total_end_time,
+                "overall_progress_percent": 100,
+                "results": results
+            }
+            try:
+                progress_callback(final_summary)
+            except Exception:
+                pass
+
         return results
 
     def upload_file_data(self,
