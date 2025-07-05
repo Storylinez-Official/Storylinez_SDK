@@ -212,5 +212,175 @@ def main():
     except Exception as e:
         print(f"Error extracting brand settings: {str(e)}")
 
+    # Example 6: Enhance a prompt with advanced control parameters
+    print("\n=== Enhancing a Prompt with Advanced Control Parameters ===")
+    try:
+        old_prompt = "Create a video about our new AI-powered software for businesses."
+        
+        # Start the prompt enhancement job with control parameters
+        enhance_result = client.utils.alter_prompt(
+            old_prompt=old_prompt,
+            job_name="AI Software Video with Control Parameters",
+            alter_type="enhance",
+            prompt_type="sequence",
+            company_details="Technology startup specializing in AI business solutions",
+            # Advanced control parameters (0-100)
+            creativity=85,          # High creativity for innovative content
+            formality=70,          # Professional but not overly formal
+            detail_level=90,       # Very detailed explanations
+            urgency=60,            # Moderate sense of urgency
+            emotional_tone=75,     # Engaging and exciting
+            energy_level=80,       # High energy for software demo
+            retention_focus=95,    # Maximum retention for business audience
+            pacing=70,             # Fast-paced for modern audience
+            cut_frequency=80,      # Frequent cuts for engagement
+            clip_length=60,        # Shorter clips for attention span
+            narrative_structure=85  # Complex storytelling for business case
+        )
+        
+        job_id = enhance_result.get("job_id")
+        print(f"Started advanced prompt enhancement job with ID: {job_id}")
+        print("Control parameters used:")
+        print("  - Creativity: 85 (High innovation)")
+        print("  - Formality: 70 (Professional)")
+        print("  - Detail Level: 90 (Very detailed)")
+        print("  - Retention Focus: 95 (Maximum engagement)")
+        print("  - Energy Level: 80 (High energy)")
+        
+        # In a real application, you'd wait for the job to complete
+        print("Waiting for job to complete...")
+        time.sleep(2)
+        
+        # Check job result
+        try:
+            job_result = client.utils.get_job_result(job_id=job_id)
+            
+            has_result = "result" in job_result and job_result.get("result")
+            has_error = job_result.get("error") is not None
+            
+            if has_result:
+                print(f"Advanced enhancement completed successfully")
+                result = job_result.get("result", {})
+                enhanced_prompt = result.get("prompt", "")
+                print(f"Enhanced prompt (first 150 chars): {enhanced_prompt[:150]}...")
+            elif has_error:
+                print(f"Job failed with error: {job_result.get('error')}")
+            else:
+                print("Job still processing. Check back later.")
+        except Exception as job_e:
+            print(f"Error checking job result: {str(job_e)}")
+            
+    except Exception as e:
+        print(f"Error enhancing prompt with control parameters: {str(e)}")
+
+    # Example 7: Creative randomization with control parameters for social media
+    print("\n=== Creative Randomization for Social Media Content ===")
+    try:
+        old_prompt = "Showcase our eco-friendly product benefits."
+        
+        # Start a randomization job optimized for social media
+        randomize_result = client.utils.alter_prompt(
+            old_prompt=old_prompt,
+            job_name="Social Media Creative Variation",
+            alter_type="randomize",
+            prompt_type="prompt",
+            company_details="Sustainable lifestyle brand targeting millennials",
+            # Social media optimized parameters
+            creativity=95,          # Maximum creativity for viral content
+            sarcasm=40,            # Light humor but not too sarcastic
+            formality=20,          # Very casual for social media
+            detail_level=60,       # Moderate detail for quick consumption
+            urgency=80,            # High urgency for action
+            emotional_tone=90,     # Highly emotional for engagement
+            energy_level=95,       # Maximum energy for social platforms
+            retention_focus=100,   # Maximum retention tactics
+            pacing=90,             # Very fast pacing
+            cut_frequency=95,      # Very frequent cuts
+            clip_length=90,        # Short, punchy clips
+            narrative_structure=70  # Engaging but not overly complex
+        )
+        
+        job_id = randomize_result.get("job_id")
+        print(f"Started social media randomization job with ID: {job_id}")
+        print("Social media optimization parameters:")
+        print("  - Creativity: 95 (Maximum for viral potential)")
+        print("  - Formality: 20 (Very casual)")
+        print("  - Energy Level: 95 (High energy)")
+        print("  - Retention Focus: 100 (Maximum engagement)")
+        print("  - Cut Frequency: 95 (Fast cuts)")
+        
+    except Exception as e:
+        print(f"Error creating social media variation: {str(e)}")
+
+    # Example 8: Corporate presentation with control parameters
+    print("\n=== Corporate Presentation Enhancement ===")
+    try:
+        old_prompt = "Present our quarterly business results and future strategy."
+        
+        # Start enhancement job optimized for corporate presentation
+        corporate_result = client.utils.alter_prompt(
+            old_prompt=old_prompt,
+            job_name="Q4 Results Corporate Presentation",
+            alter_type="enhance",
+            prompt_type="storyboard",
+            company_details="Fortune 500 technology company with focus on enterprise solutions",
+            # Corporate presentation parameters
+            creativity=30,          # Conservative creativity
+            sarcasm=5,             # Minimal humor
+            formality=95,          # Very formal and professional
+            detail_level=85,       # Detailed but not overwhelming
+            urgency=40,            # Low urgency, methodical
+            emotional_tone=50,     # Neutral to positive
+            energy_level=60,       # Moderate, professional energy
+            retention_focus=70,    # Good engagement without being flashy
+            pacing=40,             # Slower, methodical pacing
+            cut_frequency=30,      # Longer scenes for depth
+            clip_length=25,        # Longer segments for detail
+            narrative_structure=90  # Complex, well-structured presentation
+        )
+        
+        job_id = corporate_result.get("job_id")
+        print(f"Started corporate presentation job with ID: {job_id}")
+        print("Corporate optimization parameters:")
+        print("  - Formality: 95 (Very professional)")
+        print("  - Creativity: 30 (Conservative approach)")
+        print("  - Narrative Structure: 90 (Well-structured)")
+        print("  - Pacing: 40 (Methodical, detailed)")
+        
+    except Exception as e:
+        print(f"Error creating corporate presentation: {str(e)}")
+    
+    print("\n" + "="*60)
+    print("ADVANCED CONTROL PARAMETERS GUIDE")
+    print("="*60)
+    print("The alter_prompt method now supports advanced control parameters (0-100):")
+    print()
+    print("🎨 CREATIVE CONTROLS:")
+    print("  • creativity: Controls creative freedom (0=conservative, 100=maximum innovation)")
+    print("  • sarcasm: Adds wit and humor (0=serious, 100=witty/sarcastic)")
+    print("  • narrative_structure: Storytelling complexity (0=simple, 100=multi-layered)")
+    print()
+    print("📝 CONTENT STYLE:")
+    print("  • formality: Communication style (0=casual, 100=formal professional)")
+    print("  • detail_level: Depth of information (0=high-level, 100=extremely detailed)")
+    print("  • emotional_tone: Engagement level (0=neutral, 100=highly emotional)")
+    print()
+    print("⚡ PACING & ENERGY:")
+    print("  • urgency: Sense of immediacy (0=relaxed, 100=high urgency)")
+    print("  • energy_level: Overall enthusiasm (0=calm, 100=high energy)")
+    print("  • pacing: Content rhythm (0=slow methodical, 100=fast dynamic)")
+    print()
+    print("🎬 VIDEO-SPECIFIC:")
+    print("  • cut_frequency: Scene changes (0=long scenes, 100=frequent cuts)")
+    print("  • clip_length: Segment duration (0=longer, 100=short punchy clips)")
+    print("  • retention_focus: Audience attention (0=standard, 100=maximum tactics)")
+    print()
+    print("💡 USAGE TIPS:")
+    print("  • All parameters are optional - omit them for standard behavior")
+    print("  • Parameters work together harmoniously")
+    print("  • Higher values aren't always better - find the right balance")
+    print("  • Invalid values (outside 0-100) are silently ignored")
+    print("="*60)
+    
 if __name__ == "__main__":
     main()

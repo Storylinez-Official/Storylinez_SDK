@@ -113,10 +113,23 @@ class UtilsClient(BaseClient):
         temperature: float = 0.7,
         alter_type: str = "enhance", 
         prompt_type: str = "prompt",
-        org_id: str = None
+        org_id: str = None,
+        # Advanced control parameters (0-100)
+        creativity: int = None,
+        sarcasm: int = None,
+        formality: int = None,
+        detail_level: int = None,
+        urgency: int = None,
+        emotional_tone: int = None,
+        pacing: int = None,
+        cut_frequency: int = None,
+        clip_length: int = None,
+        retention_focus: int = None,
+        energy_level: int = None,
+        narrative_structure: int = None
     ) -> Dict:
         """
-        Enhance or randomize an existing prompt.
+        Enhance or randomize an existing prompt with advanced control parameters.
         
         Args:
             old_prompt: The original prompt text to be altered
@@ -128,6 +141,20 @@ class UtilsClient(BaseClient):
             alter_type: Type of alteration to perform: "enhance" or "randomize"
             prompt_type: Type of prompt: "prompt", "storyboard", or "sequence"
             org_id: Organization ID (uses default if not provided)
+            
+            # Advanced Control Parameters (0-100):
+            creativity: Controls creative freedom and originality (0=conservative, 100=maximum creativity)
+            sarcasm: Adds wit and subtle humor (0=serious tone, 100=sharp, witty style)
+            formality: Adjusts communication style (0=casual, 100=formal professional)
+            detail_level: Controls depth and specificity (0=high-level, 100=extremely detailed)
+            urgency: Sets sense of immediacy (0=relaxed pace, 100=high urgency)
+            emotional_tone: Influences emotional engagement (0=neutral, 100=highly emotional)
+            pacing: Controls content rhythm (0=slow methodical, 100=fast dynamic)
+            cut_frequency: Affects scene/segment changes (0=long scenes, 100=frequent cuts)
+            clip_length: Influences individual segment duration (0=longer segments, 100=short clips)
+            retention_focus: Optimizes for audience attention (0=standard, 100=maximum retention tactics)
+            energy_level: Sets overall energy and enthusiasm (0=calm subdued, 100=high energy)
+            narrative_structure: Controls storytelling approach (0=simple linear, 100=complex multi-layered)
             
         Returns:
             Dictionary with job ID and status
@@ -142,13 +169,20 @@ class UtilsClient(BaseClient):
             - Higher temperature (0.7-1.0) for creative alterations
             - You can provide company context directly via company_details or reference a saved profile via company_details_id
             - If neither company_details nor company_details_id is provided, no company context will be included
+            - All control parameters are optional and accept integer values from 0-100
+            - Invalid control parameter values are silently ignored for backward compatibility
+            - Control parameters work together harmoniously and are designed to complement each other
             
         Example:
             >>> result = client.utils.alter_prompt(
             ...     old_prompt="Create a video about our product features",
             ...     job_name="Product Video Enhancement",
             ...     company_details_id="company_0123456789",
-            ...     temperature=0.6
+            ...     temperature=0.6,
+            ...     creativity=75,
+            ...     formality=80,
+            ...     detail_level=90,
+            ...     energy_level=85
             ... )
             >>> job_id = result.get("job_id")
             >>> # Wait for job to complete
@@ -171,7 +205,7 @@ class UtilsClient(BaseClient):
         # Validate temperature
         if not (0.0 <= temperature <= 1.0):
             raise ValueError("temperature must be between 0.0 and 1.0")
-            
+        
         # Prepare request data
         data = {
             "old_prompt": old_prompt,
@@ -184,6 +218,35 @@ class UtilsClient(BaseClient):
             
         if edited_json:
             data["edited_json"] = edited_json
+        
+        # Validate and add control parameters
+        control_params = {
+            'creativity': creativity,
+            'sarcasm': sarcasm,
+            'formality': formality,
+            'detail_level': detail_level,
+            'urgency': urgency,
+            'emotional_tone': emotional_tone,
+            'pacing': pacing,
+            'cut_frequency': cut_frequency,
+            'clip_length': clip_length,
+            'retention_focus': retention_focus,
+            'energy_level': energy_level,
+            'narrative_structure': narrative_structure
+        }
+        
+        # Add validated control parameters
+        for param_name, param_value in control_params.items():
+            if param_value is not None:
+                try:
+                    # Convert to integer and validate range
+                    val = int(param_value)
+                    if 0 <= val <= 100:
+                        data[param_name] = val
+                    # Invalid values are silently ignored for backward compatibility
+                except (ValueError, TypeError):
+                    # Invalid values are silently ignored for backward compatibility
+                    pass
             
         # Handle company_details as string or dict
         if company_details:
