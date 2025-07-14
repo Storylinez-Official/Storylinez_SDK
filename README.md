@@ -6,10 +6,15 @@
 
 ![Storylinez SDK - AI-driven content creation platform](https://github.com/Stroylinz-Official/Storylinez_SDK/blob/39634c47dcb72d833a38a5292186116bdf513d5f/assets/Storylinez%20Cover.png)
 
-> **Note:** Example usage scripts can be found in the `examples` folder. Utility and automation scripts are located in the `scripts` folder.
+> **Transform text into professional videos with AI-powered content creation, intelligent web search, and built-in workflow automation.**
+> 
+> 📚 **Complete Tutorial Library**: Comprehensive guides are available in the `guides/` directory covering everything from API setup to advanced video production workflows.
+> 
+> 💻 **Example Scripts**: Usage examples can be found in the `examples/` folder. Utility and automation scripts are located in the `scripts/` folder.
 
 ## Table of Contents
 - [Overview](#overview)
+- [Tutorial Library](#tutorial-library)
 - [Features](#features)
 - [Installation](#installation)
 - [Authentication](#authentication)
@@ -44,8 +49,57 @@ This library empowers developers to:
 
 Whether you're building a content automation system, integrating AI-driven video generation into your application, or creating tools for content marketers, the Storylinez SDK provides the foundation for sophisticated media production workflows.
 
+## Tutorial Library
+
+📚 **Comprehensive Learning Resources** - All tutorial guides are available in the `guides/` directory:
+
+### 🔑 Authentication & Setup
+- [**How to Make an API Key**](./guides/1_how_to_make_api_key.md) - Complete guide to generating and managing API credentials
+- [**How to Use API Keys**](./guides/2_how_to_use_api_key.md) - Authentication patterns and security best practices
+- [**How to Navigate API Documentation**](./guides/3_how_to_navigate_api_docs.md) - Mastering the API reference and examples
+
+### 📖 Platform Understanding
+- [**What are Changelogs**](./guides/4_what_are_changelogs.md) - Understanding platform updates and version management
+- [**How to Use SDK Fully**](./guides/5_how_to_use_sdk.md) - Advanced SDK patterns and optimization techniques
+- [**Getting Started Guide**](./guides/6_getting_started_guide.md) - Complete beginner's tutorial
+- [**Understanding Workflows**](./guides/7_understanding_workflows.md) - Master complex video creation pipelines
+
+### 🏢 Organization Management
+- [**Organization Switching**](./guides/8_organization_switching.md) - Multi-tenant workflow management
+- [**Adding People to Organization**](./guides/9_adding_people_to_organization.md) - Team collaboration setup
+- [**How to Add New Members**](./guides/30_how_to_add_new_members.md) - Advanced member management
+- [**How to Add Organization Information**](./guides/32_how_to_add_organization_information.md) - Company profile optimization
+
+### 🎬 Video Creation Workflow
+- [**How to Make a Project**](./guides/20_how_to_make_a_project.md) - Project setup and configuration
+- [**How to Upload Media**](./guides/21_how_to_upload_media.md) - Custom media integration
+- [**How to Use Reference Media**](./guides/22_how_to_use_reference_media.md) - Leveraging existing content
+- [**How to Import Stock Media**](./guides/23_how_to_get_import_stock_media.md) - Stock media integration
+- [**How to Use the Storyboard Tab**](./guides/24_how_to_use_the_storyboard_tab.md) - Visual planning interface
+- [**How to Use the Edit Tab**](./guides/25_how_to_use_the_edit_tab.md) - Video editing and refinement
+- [**How to Use the Prompt Tab**](./guides/26_how_to_use_the_prompt_tab.md) - AI prompt optimization
+
+### 🎙️ Audio & Publishing
+- [**How to Publish a Video**](./guides/27_how_to_publish_a_video.md) - Distribution and platform optimization
+- [**How to Make Good Voiceover**](./guides/28_how_to_make_a_good_voiceover.md) - Professional audio production
+
+### 🎨 Brand & Customization
+- [**How to Add Company Presets**](./guides/31_how_to_add_company_presets.md) - Brand consistency and presets
+- [**What is Good vs Bad Content**](./guides/33_what_is_good_content_vs_bad_content.md) - Content quality guidelines
+
+### 💼 Business Operations
+- [**How to Upgrade Your Plan**](./guides/29_how_to_upgrade_your_plan.md) - Subscription and billing management
+- [**Bug Reporting & System Status**](./guides/10_bug_reporting_system_status.md) - Platform monitoring and support
+
+### 📹 Video Tutorial Scripts
+Professional video scripts for enhanced learning are available in the main application:
+- Location: `../app/tutorial_scripts/`
+- Complete with timing, visual cues, and production notes
+- Perfect for video-based learning and onboarding
+
 ## Features
 
+### Core Platform Capabilities
 - **Complete API Coverage** - Access all Storylinez platform capabilities through a unified interface
 - **Modular Architecture** - Import only the modules you need for your specific use case
 - **Intelligent Content Generation** - AI-powered tools for storyboards, scripts, and content planning
@@ -57,6 +111,14 @@ Whether you're building a content automation system, integrating AI-driven video
 - **Robust Validation** - Clear error messages and parameter validation to prevent issues
 - **Comprehensive Type Hints** - Complete typing for improved IDE support and code completion
 - **Flexible Authentication** - Simple setup with API keys or environment variables
+
+### Smart Automation Features
+- **🌐 Automatic Web Search** - Real-time Google API integration for up-to-date content
+- **🧮 Built-in Calculator & Tools** - Statistical analysis and data processing capabilities
+- **⚠️ Cascade Outdated Markers** - Intelligent workflow dependency tracking and stale content detection
+- **🔄 Workflow Automation** - Helper methods for common content creation patterns
+- **✅ Robust Validation** - Clear error messages and parameter validation
+- **📊 Performance Analytics** - Built-in metrics and optimization suggestions
 
 ## Installation
 
@@ -73,12 +135,14 @@ pip install storylinez
 For the latest features or development work:
 
 ```bash
-git clone https://github.com/Kawai-Senpai/Storylinez-SDK.git
+git clone https://github.com/Storylinez-Official/Storylinez_SDK
 cd Storylinez-SDK
 pip install -e .
 ```
 
 ## Authentication
+
+> 📖 **Detailed Setup Guide**: For step-by-step instructions on creating and managing API keys, see our comprehensive [How to Make an API Key](./guides/1_how_to_make_api_key.md) and [How to Use API Keys](./guides/2_how_to_use_api_key.md) guides.
 
 ### Using Environment Variables
 
@@ -155,6 +219,10 @@ client.set_default_org_id("different_org_id")
 
 ## Quick Start
 
+> 🚀 **Smart Features**: The Storylinez platform includes automatic web search integration, built-in analytical tools, and cascade dependency tracking that automatically detects outdated content. These features work seamlessly in the background to enhance your video creation process.
+>
+> 📖 **Complete Tutorial**: For a comprehensive walkthrough, see our [Getting Started Guide](./guides/6_getting_started_guide.md)
+
 ### End-to-End Video Creation
 
 This example shows the complete process of creating a video from a text prompt:
@@ -185,13 +253,18 @@ client.prompt.create_text_prompt(
     total_length=30
 )
 
-# 3. Generate a storyboard
+# 3. Generate a storyboard with smart features
 storyboard_job = client.storyboard.create_storyboard(
     project_id=project_id,
-    deepthink=True,
-    web_search=True
+    deepthink=True,     # Enhanced AI processing
+    web_search=True     # Automatic Google API search for current information
 )
 print(f"Storyboard job started: {storyboard_job['job_id']}")
+
+# The platform automatically:
+# - Searches the web for current information about your topic
+# - Detects and marks any outdated content with cascade indicators
+# - Uses built-in analytical tools to optimize content structure
 
 # 4. Wait for storyboard completion
 storyboard = client.storyboard.wait_for_storyboard(
@@ -1310,9 +1383,19 @@ print(f"API Version: {status['version']}")
 
 ## API Documentation
 
+### Platform Access Points
+- **🌐 Web Application**: [app.storylinezads.com](https://app.storylinezads.com)
+- **📚 API Documentation**: [docs.storylinezads.com](https://docs.storylinezads.com)
+- **🔧 API Endpoint**: [api.storylinezads.com](https://api.storylinezads.com)
+
+### Detailed Guides
+- [How to Navigate API Documentation](./guides/3_how_to_navigate_api_docs.md) - Complete guide to using the API reference
+- [Understanding Workflows](./guides/7_understanding_workflows.md) - Complex production workflow patterns
+- [What are Changelogs](./guides/4_what_are_changelogs.md) - Understanding platform updates
+
 For full details on all available methods and parameters, refer to the following resources:
 
-- [Official Storylinez API Documentation](https://docs.storylinez.com)
+- [Official Storylinez API Documentation](https://docs.storylinezads.com)
 
 The SDK examples directory contains additional code samples:
 
@@ -1382,10 +1465,17 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Support
 
-For support with the Storylinez SDK:
+### Getting Help
 
-- **Documentation:** [https://docs.storylinez.com](https://docs.storylinez.com)
+1. **📖 Documentation**: Start with our comprehensive [tutorial library](./guides/) 
+2. **🐛 Bug Reports**: Use the [Bug Reporting & System Status](./guides/10_bug_reporting_system_status.md) guide
+3. **💬 Community**: Connect with other developers on [LinkedIn](https://www.linkedin.com/company/storylinez)
+4. **🎯 Direct Support**: Contact support through [app.storylinezads.com/help](https://app.storylinezads.com/help)
+
+### Platform Resources
+- **Documentation:** [docs.storylinezads.com](https://docs.storylinezads.com)
 - **Email Support:** support@storylinezads.com
+- **Web Application:** [app.storylinezads.com](https://app.storylinezads.com)
 
 For enterprise customers, please contact your dedicated account manager for priority support.
 
