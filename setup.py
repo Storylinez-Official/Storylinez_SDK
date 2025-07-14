@@ -16,7 +16,7 @@ setup(
     long_description_content_type='text/markdown',
     packages=find_packages('src', include=["storylinez", "storylinez.*"]),
     package_dir={'': 'src'},
-    url='https://github.com/Kawai-Senpai/Storylinez-SDK',
+    url='https://github.com/Storylinez-Official/Storylinez_SDK',
     install_requires=[
         'python-dotenv',
         'ultraprint>=3.3.0',

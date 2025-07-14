@@ -4,7 +4,7 @@
 [![Python Versions](https://img.shields.io/pypi/pyversions/storylinez.svg)](https://pypi.org/project/storylinez/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-![Storylinez SDK - AI-driven content creation platform](https://github.com/Stroylinz-Official/Storylinez_SDK/blob/39634c47dcb72d833a38a5292186116bdf513d5f/assets/Storylinez%20Cover.png)
+![Storylinez SDK - AI-driven content creation platform](https://github.com/Storylinez-Official/Storylinez_SDK/blob/39634c47dcb72d833a38a5292186116bdf513d5f/assets/Storylinez%20Cover.png)
 
 > **Transform text into professional videos with AI-powered content creation, intelligent web search, and built-in workflow automation.**
 > 
@@ -135,8 +135,8 @@ pip install storylinez
 For the latest features or development work:
 
 ```bash
-git clone https://github.com/Storylinez-Official/Storylinez_SDK
-cd Storylinez-SDK
+git clone https://github.com/Storylinez-Official/Storylinez_SDK.git
+cd Storylinez_SDK
 pip install -e .
 ```
 
@@ -191,7 +191,7 @@ client = StorylinezClient(
     api_key="api_your_key_here",
     api_secret="your_secret_here",
     org_id="your_org_id_here",
-    base_url="https://your-custom-endpoint.storylinez.com"
+    base_url="https://api.storylinezads.com"
 )
 ```
 
@@ -1256,7 +1256,7 @@ The SDK can be configured through environment variables or direct initialization
 | `STORYLINEZ_API_KEY` | API key for authentication | Yes | None |
 | `STORYLINEZ_API_SECRET` | API secret for authentication | Yes | None |
 | `STORYLINEZ_ORG_ID` | Organization ID | No | None |
-| `STORYLINEZ_BASE_URL` | Custom API endpoint | No | `https://api.storylinez.com` |
+| `STORYLINEZ_BASE_URL` | Custom API endpoint | No | `https://api.storylinezads.com` |
 | `STORYLINEZ_DEBUG` | Enable debug logging | No | `False` |
 | `STORYLINEZ_TIMEOUT` | Request timeout in seconds | No | `120` |
 | `STORYLINEZ_MAX_RETRIES` | Max retry attempts for failed requests | No | `3` |
@@ -1270,7 +1270,7 @@ You can also create a config file (`~/.storylinez/config.json`):
   "api_key": "api_your_key_here",
   "api_secret": "your_secret_here",
   "org_id": "your_org_id_here",
-  "base_url": "https://api.storylinez.com",
+  "base_url": "https://api.storylinezads.com",
   "debug": false,
   "timeout": 120,
   "max_retries": 3
@@ -1421,8 +1421,8 @@ Contributions to the Storylinez SDK are welcome! Here's how to get started:
 
 2. **Set Up Development Environment**
    ```bash
-   git clone https://github.com/your-username/Storylinez-SDK.git
-   cd Storylinez-SDK
+   git clone https://github.com/Storylinez-Official/Storylinez_SDK.git
+   cd Storylinez_SDK
    pip install -e ".[dev]"
    ```
 
