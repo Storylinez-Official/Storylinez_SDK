@@ -557,6 +557,79 @@ class SearchClient(BaseClient):
         params.update({k: v for k, v in kwargs.items() if v is not None})
         
         return self._make_request("POST", f"{self.search_url}/files/audio/by-instrument", params=params, json_data=data)
+
+    def search_audio_by_intelligence(self, classes: List[str], min_confidence: float = 0.0,
+                                     media_source: str = "user", folder_path: str = None,
+                                     page: int = 1, page_size: int = 20,
+                                     generate_thumbnail: bool = False, generate_streamable: bool = False,
+                                     generate_download: bool = False, org_id: str = None, **kwargs) -> Dict:
+        """
+        Search for audio files by detected audio intelligence classes.
+
+        Args:
+            classes: List of intelligence class labels to search for (e.g., ["vocals", "applause"]).
+            min_confidence: Minimum confidence threshold for matches (0.0-1.0). Defaults to 0.0.
+            media_source: Source of media ("user" or "stock").
+            folder_path: Path to search within (for user media only).
+            page: Page number for pagination.
+            page_size: Number of results per page (1-100).
+            generate_thumbnail: Whether to generate thumbnail URLs in the response.
+            generate_streamable: Whether to generate streamable URLs in the response.
+            generate_download: Whether to generate download URLs in the response.
+            org_id: Organization ID (uses default if not provided).
+            **kwargs: Additional parameters to pass to the API.
+
+        Returns:
+            Dictionary with search results and pagination info.
+
+        Notes:
+            - This supersedes instrument-based search for most use cases.
+            - The backend maintains backward compatibility by mapping legacy instrument data when available.
+        """
+        if not classes:
+            raise ValueError("classes list cannot be empty")
+
+        if not isinstance(classes, list):
+            classes = [classes]
+
+        if not all(isinstance(c, str) for c in classes):
+            raise TypeError("classes must be a list of strings")
+
+        if not isinstance(min_confidence, (int, float)) or not (0 <= min_confidence <= 1):
+            raise ValueError("min_confidence must be a number between 0 and 1")
+
+        org_id = org_id or self.default_org_id
+
+        # Validate parameters
+        self._validate_common_params(media_source, org_id, page, page_size)
+
+        params = {
+            "media_source": media_source,
+            "page": page,
+            "page_size": page_size,
+            "generate_thumbnail": str(generate_thumbnail).lower(),
+            "generate_streamable": str(generate_streamable).lower(),
+            "generate_download": str(generate_download).lower()
+        }
+
+        if media_source == "user":
+            params["org_id"] = org_id
+
+        if folder_path:
+            params["folder_path"] = folder_path
+
+        # Normalize classes to lowercase for consistency
+        classes = [c.lower() for c in classes]
+
+        data = {
+            "classes": classes,
+            "min_confidence": min_confidence
+        }
+
+        # Add any additional parameters
+        params.update({k: v for k, v in kwargs.items() if v is not None})
+
+        return self._make_request("POST", f"{self.search_url}/files/audio/by-intelligence", params=params, json_data=data)
     
     def search_audio_by_transcription(self, query: str, media_source: str = "user", 
                                     folder_path: str = None, page: int = 1, page_size: int = 20,
