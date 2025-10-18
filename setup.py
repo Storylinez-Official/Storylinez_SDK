@@ -19,7 +19,7 @@ setup(
     url='https://github.com/Storylinez-Official/Storylinez_SDK',
     install_requires=[
         'python-dotenv',
-        'ultraprint>=3.3.0',
+        'ultraprint>=3.4.0',
     ],
     python_requires='>=3.6',
 )
