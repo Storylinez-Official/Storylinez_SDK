@@ -94,8 +94,7 @@ class StockClient(BaseClient):
         
         # Add optional parameters
         if collections:
-            for collection in collections:
-                params["collections"] = collection
+            params["collections"] = collections
                 
         if num_results is not None:
             params["num_results"] = num_results
@@ -158,10 +157,11 @@ class StockClient(BaseClient):
         return self._make_request("GET", f"{self.stock_url}/get_by_id", params=params)
     
     def list_media(self, media_type: str, page: int = 1, limit: int = 20, 
-                 sort_by: str = "processed_at", sort_order: str = "desc",
+                 sort_by: str = "processed_at", sort_order: str = "asc",
                  detailed: bool = False, generate_thumbnail: bool = False,
                  generate_streamable: bool = False, generate_download: bool = False,
-                 orientation: str = None, search: str = None, **kwargs) -> Dict:
+                 orientation: str = None, search: str = None, smart_sort: bool = True,
+                 **kwargs) -> Dict:
         """
         List stock media items with pagination.
         
@@ -177,6 +177,7 @@ class StockClient(BaseClient):
             generate_download: Whether to generate download URLs
             orientation: Filter videos by orientation ('landscape' or 'portrait')
             search: Optional text search within title/metadata
+            smart_sort: Whether to apply interaction-aware smart sorting (liked first, disliked last)
             
         Returns:
             Dictionary containing paginated media items and pagination info
@@ -187,8 +188,10 @@ class StockClient(BaseClient):
             raise ValueError(f"media_type must be one of: {', '.join(valid_media_types)}")
             
         # Validate sort_order
-        if sort_order not in ['asc', 'desc']:
+        sort_order_normalized = sort_order.lower()
+        if sort_order_normalized not in ['asc', 'desc']:
             raise ValueError("sort_order must be either 'asc' or 'desc'")
+        sort_order = sort_order_normalized
             
         # Validate orientation if provided
         if orientation:
@@ -217,7 +220,8 @@ class StockClient(BaseClient):
             "detailed": str(detailed).lower(),
             "generate_thumbnail": str(generate_thumbnail).lower(),
             "generate_streamable": str(generate_streamable).lower(),
-            "generate_download": str(generate_download).lower()
+            "generate_download": str(generate_download).lower(),
+            "smart_sort": str(smart_sort).lower()
         }
         
         # Add optional parameters

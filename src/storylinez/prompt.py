@@ -6,6 +6,16 @@ import mimetypes
 from typing import Dict, List, Optional, Union, Any, Tuple
 from datetime import datetime
 from .base_client import BaseClient
+from .shared.validation import (
+    get_allowed_engines,
+    get_allowed_media_extensions,
+    get_allowed_media_formats,
+    get_allowed_models,
+    normalize_engine,
+    normalize_model,
+    validate_eco_model_conflict,
+    validate_media_extension,
+)
 
 class PromptClient(BaseClient):
     """
@@ -26,15 +36,85 @@ class PromptClient(BaseClient):
         super().__init__(api_key, api_secret, base_url, default_org_id)
         self.prompts_url = f"{self.base_url}/prompts"
         
-        # Define allowed media formats
-        self.allowed_formats = {
-            'VIDEO': ['mp4'],
-            'AUDIO': ['mp3', 'wav'], 
-            'IMAGE': ['jpg', 'jpeg', 'png']
-        }
-        
-        # Specifically for reference videos, only mp4 is supported
-        self.allowed_video_formats = self.allowed_formats['VIDEO']
+        # Define allowed media formats aligned with server configuration
+        self.allowed_formats = get_allowed_media_formats()
+
+        # Specifically for reference videos, reuse the allowed video formats
+        self.allowed_video_formats = get_allowed_media_extensions('VIDEO')
+        self._project_type_cache: Dict[str, str] = {}
+
+    @staticmethod
+    def _normalize_project_type_hint(project_type: Optional[str]) -> Optional[str]:
+        """Normalize optional project type hints to lowercase canonical values."""
+        if project_type is None:
+            return None
+        if not isinstance(project_type, str):
+            raise ValueError("project_type must be provided as 'v1' or 'v2'")
+        normalized = project_type.strip().lower()
+        if normalized not in {"v1", "v2"}:
+            raise ValueError("project_type must be either 'v1' or 'v2'")
+        return normalized
+
+    def _get_project_type(self, project_id: str) -> str:
+        """Fetch and cache project type information for guard-rails."""
+        cached = self._project_type_cache.get(project_id)
+        if cached:
+            return cached
+
+        response = self._make_request(
+            "GET",
+            f"{self.base_url}/projects/get_one",
+            params={"project_id": project_id}
+        )
+        project_type = (response.get("type") or "v1").lower()
+        self._project_type_cache[project_id] = project_type
+        return project_type
+
+    def _ensure_legacy_prompt_supported(self, project_id: str, project_type: Optional[str]) -> str:
+        """Raise when attempting to use legacy prompt APIs for v2 projects."""
+        normalized_hint = self._normalize_project_type_hint(project_type)
+        resolved_type = normalized_hint or self._get_project_type(project_id)
+        if resolved_type == "v2":
+            raise ValueError(
+                "Prompts for v2 sequence builder projects must use the /v2 APIs. "
+                "Legacy /prompts endpoints are available for v1 projects only."
+            )
+        return resolved_type
+
+    def _normalize_narrative_model(self, model: Optional[str], eco_enabled: bool) -> Optional[str]:
+        """Validate narrative domain model alias and eco compatibility."""
+        try:
+            normalized = normalize_model(model, domain="narrative")
+        except ValueError as exc:
+            allowed = ", ".join(sorted(get_allowed_models("narrative")))
+            raise ValueError(f"model must be one of: {allowed}") from exc
+        if normalized is None:
+            return None
+        validate_eco_model_conflict(eco_enabled, normalized, domain="narrative")
+        return normalized
+
+    def _normalize_analysis_model(self, model: Optional[str], eco_enabled: bool) -> Optional[str]:
+        """Validate analysis domain model alias and eco compatibility."""
+        try:
+            normalized = normalize_model(model, domain="analysis")
+        except ValueError as exc:
+            allowed = ", ".join(sorted(get_allowed_models("analysis")))
+            raise ValueError(f"model must be one of: {allowed}") from exc
+        if normalized is None:
+            return None
+        validate_eco_model_conflict(eco_enabled, normalized, domain="analysis")
+        return normalized
+
+    @staticmethod
+    def _normalize_engine_name(engine: Optional[str]) -> Optional[str]:
+        """Validate prompt engine names against supported options."""
+        if engine is None:
+            return None
+        try:
+            return normalize_engine(engine)
+        except ValueError as exc:
+            allowed = ", ".join(get_allowed_engines())
+            raise ValueError(f"engine must be one of: {allowed}") from exc
     
     # Helper method to validate file extensions
     def _validate_file_extension(self, filename: str, media_type: str) -> str:
@@ -51,17 +131,7 @@ class PromptClient(BaseClient):
         Raises:
             ValueError: If the file extension is not allowed for the media type
         """
-        if media_type not in self.allowed_formats:
-            raise ValueError(f"Unknown media type: {media_type}")
-            
-        extension = os.path.splitext(filename)[1].lower().lstrip('.')
-        if not extension:
-            raise ValueError(f"Filename '{filename}' has no extension. Valid {media_type.lower()} extensions are: {', '.join(self.allowed_formats[media_type])}")
-            
-        if extension not in self.allowed_formats[media_type]:
-            raise ValueError(f"File extension '{extension}' is not supported. Valid {media_type.lower()} extensions are: {', '.join(self.allowed_formats[media_type])}")
-            
-        return extension
+        return validate_media_extension(filename, media_type)
     
     # Prompt Operations
     
@@ -77,7 +147,11 @@ class PromptClient(BaseClient):
                          web_search: bool = False,
                          eco: bool = False, 
                          skip_voiceover: bool = False,
-                         voiceover_mode: str = "generated") -> Dict:
+                         voiceover_mode: str = "generated",
+                         engine: Optional[str] = None,
+                         model: Optional[str] = None,
+                         enable_content_analysis: bool = True,
+                         project_type: Optional[str] = None) -> Dict:
         """
         Create a new text-based prompt for a project.
         
@@ -101,6 +175,9 @@ class PromptClient(BaseClient):
         Raises:
             ValueError: If parameters are invalid
         """
+        # Ensure legacy prompt endpoints are used only for v1 projects
+        self._ensure_legacy_prompt_supported(project_id, project_type)
+
         # Input validations
         if not project_id:
             raise ValueError("project_id is required")
@@ -145,6 +222,10 @@ class PromptClient(BaseClient):
         elif not isinstance(document_context, list):
             document_context = []
         
+        eco_enabled = bool(eco)
+        engine_name = self._normalize_engine_name(engine)
+        narrative_model = self._normalize_narrative_model(model, eco_enabled)
+
         data = {
             "project_id": project_id,
             "main_prompt": main_prompt,
@@ -155,10 +236,20 @@ class PromptClient(BaseClient):
             "deepthink": bool(deepthink),
             "overdrive": bool(overdrive),
             "web_search": bool(web_search),
-            "eco": bool(eco),
+            "eco": eco_enabled,
             "skip_voiceover": bool(skip_voiceover),
             "voiceover_mode": voiceover_mode
         }
+
+        if engine_name:
+            data["engine"] = engine_name
+
+        data["enable_content_analysis"] = bool(enable_content_analysis)
+
+        if narrative_model is not None:
+            data["model"] = narrative_model
+            if narrative_model not in (None, "auto"):
+                data["model_override"] = narrative_model
         
         return self._make_request("POST", f"{self.prompts_url}/create", json_data=data)
     
@@ -174,7 +265,11 @@ class PromptClient(BaseClient):
                           eco: bool = False, 
                           skip_voiceover: bool = False,
                           voiceover_mode: str = "generated", 
-                          include_detailed_analysis: bool = False) -> Dict:
+                          include_detailed_analysis: bool = False,
+                          engine: Optional[str] = None,
+                          model: Optional[str] = None,
+                          enable_content_analysis: bool = True,
+                          project_type: Optional[str] = None) -> Dict:
         """
         Create a new video-based prompt for a project.
         
@@ -198,6 +293,9 @@ class PromptClient(BaseClient):
         Raises:
             ValueError: If parameters are invalid
         """
+        # Ensure legacy prompt endpoints are used only for v1 projects
+        self._ensure_legacy_prompt_supported(project_id, project_type)
+
         # Input validations
         if not project_id:
             raise ValueError("project_id is required")
@@ -236,6 +334,10 @@ class PromptClient(BaseClient):
         if voiceover_mode not in ["generated", "uploaded"]:
             raise ValueError(f"voiceover_mode must be either 'generated' or 'uploaded', got: {voiceover_mode}")
         
+        eco_enabled = bool(eco)
+        engine_name = self._normalize_engine_name(engine)
+        narrative_model = self._normalize_narrative_model(model, eco_enabled)
+
         data = {
             "project_id": project_id,
             "reference_video_id": reference_video_id,
@@ -245,11 +347,21 @@ class PromptClient(BaseClient):
             "deepthink": bool(deepthink),
             "overdrive": bool(overdrive),
             "web_search": bool(web_search),
-            "eco": bool(eco),
+            "eco": eco_enabled,
             "skip_voiceover": bool(skip_voiceover),
             "voiceover_mode": voiceover_mode,
             "include_detailed_analysis": bool(include_detailed_analysis)
         }
+
+        if engine_name:
+            data["engine"] = engine_name
+
+        data["enable_content_analysis"] = bool(enable_content_analysis)
+
+        if narrative_model is not None:
+            data["model"] = narrative_model
+            if narrative_model not in (None, "auto"):
+                data["model_override"] = narrative_model
         
         return self._make_request("POST", f"{self.prompts_url}/create", json_data=data)
     
@@ -268,6 +380,9 @@ class PromptClient(BaseClient):
         Raises:
             ValueError: If unable to determine prompt type or if parameters are invalid
         """
+        if "main_prompt" in kwargs and "reference_video_id" in kwargs:
+            raise ValueError("Provide either main_prompt or reference_video_id, not both")
+
         if "main_prompt" in kwargs:
             # Creating a text prompt
             return self.create_text_prompt(project_id=project_id, **kwargs)
@@ -335,7 +450,9 @@ class PromptClient(BaseClient):
                      document_context: Union[str, List[str]] = None,
                      reference_video_id: str = None,
                      skip_voiceover: bool = None,
-                     voiceover_mode: str = None) -> Dict:
+                     voiceover_mode: str = None,
+                     engine: Optional[str] = None,
+                     model: Optional[str] = None) -> Dict:
         """
         Update an existing prompt.
         
@@ -408,6 +525,7 @@ class PromptClient(BaseClient):
             update_data['iterations'] = iterations
             
         # Boolean flags
+        eco_flag = None
         if deepthink is not None:
             update_data['deepthink'] = bool(deepthink)
             
@@ -418,7 +536,8 @@ class PromptClient(BaseClient):
             update_data['web_search'] = bool(web_search)
             
         if eco is not None:
-            update_data['eco'] = bool(eco)
+            eco_flag = bool(eco)
+            update_data['eco'] = eco_flag
             
         if skip_voiceover is not None:
             update_data['skip_voiceover'] = bool(skip_voiceover)
@@ -448,6 +567,16 @@ class PromptClient(BaseClient):
             if voiceover_mode not in ['generated', 'uploaded']:
                 raise ValueError(f"voiceover_mode must be either 'generated' or 'uploaded', got: {voiceover_mode}")
             update_data['voiceover_mode'] = voiceover_mode
+
+        if engine is not None:
+            update_data['engine'] = self._normalize_engine_name(engine)
+
+        if model is not None:
+            normalized_model = self._normalize_narrative_model(model, eco_flag is True)
+            update_data['model'] = normalized_model
+            update_data['model_override'] = (
+                normalized_model if normalized_model not in (None, 'auto') else None
+            )
             
         if not update_data:
             raise ValueError("At least one field to update must be provided")
@@ -613,7 +742,14 @@ class PromptClient(BaseClient):
                                       context: str = "", 
                                       tags: List[str] = None,
                                       company_details: str = "",
-                                      analyze_audio: bool = True) -> Dict:
+                                      analyze_audio: bool = True,
+                                      deepthink: bool = False,
+                                      overdrive: bool = False,
+                                      web_search: bool = False,
+                                      eco: bool = False,
+                                      temperature: float = 0.7,
+                                      advanced_detection: bool = True,
+                                      model: Optional[str] = None) -> Dict:
         """
         Complete a reference video upload.
         
@@ -627,6 +763,13 @@ class PromptClient(BaseClient):
             tags: List of tags for the video
             company_details: Company details for contextual analysis
             analyze_audio: Whether to analyze audio in the video
+            deepthink: Enable deeper semantic analysis on the reference clip
+            overdrive: Enable high-intensity analysis pipeline
+            web_search: Enable augmented web context during analysis
+            eco: Enable eco mode for faster, lower-cost analysis
+            temperature: Analysis temperature (0.0-1.0) used for narrative synthesis
+            advanced_detection: Enable advanced detection models (default True)
+            model: Optional analysis model alias ('auto' or values from get_allowed_models('analysis'))
             
         Returns:
             Dictionary with the registered video details
@@ -648,6 +791,18 @@ class PromptClient(BaseClient):
         elif not isinstance(tags, list):
             tags = [str(tags)]
         
+        eco_flag = bool(eco)
+
+        try:
+            temperature = float(temperature)
+        except (TypeError, ValueError):
+            raise ValueError(f"temperature must be a number between 0 and 1, got: {temperature}")
+
+        if temperature < 0 or temperature > 1:
+            raise ValueError(f"temperature must be between 0 and 1, got: {temperature}")
+
+        analysis_model = self._normalize_analysis_model(model, eco_flag)
+
         # Determine mimetype based on file extension if not provided
         if mimetype is None and filename:
             guessed_type = mimetypes.guess_type(filename)[0]
@@ -667,7 +822,13 @@ class PromptClient(BaseClient):
             "context": context or "",
             "tags": tags,
             "company_details": company_details or "",
-            "analyze_audio": bool(analyze_audio)
+            "analyze_audio": bool(analyze_audio),
+            "deepthink": bool(deepthink),
+            "overdrive": bool(overdrive),
+            "web_search": bool(web_search),
+            "eco": eco_flag,
+            "temperature": temperature,
+            "advanced_detection": bool(advanced_detection)
         }
         
         if upload_id:
@@ -678,6 +839,10 @@ class PromptClient(BaseClient):
             data["filename"] = filename
         if mimetype:
             data["mimetype"] = mimetype
+
+        if analysis_model is not None:
+            data["model"] = analysis_model
+            data["model_override"] = analysis_model if analysis_model not in (None, "auto") else None
             
         return self._make_request("POST", f"{self.prompts_url}/upload/complete", json_data=data)
     
@@ -996,7 +1161,14 @@ class PromptClient(BaseClient):
                              context: str = "", 
                              tags: List[str] = None, 
                              company_details: str = "",
-                             analyze_audio: bool = True) -> Dict:
+                             analyze_audio: bool = True,
+                             deepthink: bool = False,
+                             overdrive: bool = False,
+                             web_search: bool = False,
+                             eco: bool = False,
+                             temperature: float = 0.7,
+                             advanced_detection: bool = True,
+                             model: Optional[str] = None) -> Dict:
         """
         Upload a reference video file.
         This is a convenience method that handles both the link generation, upload, and registration.
@@ -1008,6 +1180,13 @@ class PromptClient(BaseClient):
             tags: List of tags for the video
             company_details: Company details for contextual analysis
             analyze_audio: Whether to analyze audio in the video
+            deepthink: Enable deeper semantic analysis
+            overdrive: Enable max quality analysis
+            web_search: Enable web-based context gathering
+            eco: Enable eco analysis mode (incompatible with custom models)
+            temperature: Analysis temperature (0.0-1.0)
+            advanced_detection: Toggle advanced detection features (default True)
+            model: Optional analysis model alias
             
         Returns:
             Dictionary with the registered video details
@@ -1061,7 +1240,14 @@ class PromptClient(BaseClient):
             context=context,
             tags=tags,
             company_details=company_details,
-            analyze_audio=analyze_audio
+            analyze_audio=analyze_audio,
+            deepthink=deepthink,
+            overdrive=overdrive,
+            web_search=web_search,
+            eco=eco,
+            temperature=temperature,
+            advanced_detection=advanced_detection,
+            model=model
         )
     
     def batch_upload_reference_videos(self, 

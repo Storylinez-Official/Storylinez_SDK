@@ -93,7 +93,11 @@ class SearchClient(BaseClient):
             **kwargs: Additional parameters to pass to the API
             
         Returns:
-            Dictionary with search results and pagination info
+            Dictionary with search results and pagination info. Each result includes
+            matched_scenes, matchedSegments, matched_transitions, matched_ocr, and a
+            video_analysis snapshot (segments, pacing, color, captions). When any of
+            the generate_* flags are true, urls.* entries (thumbnail_url, low_quality_url,
+            streamable_url) are populated automatically.
             
         Tips:
             - For more accurate results, use specific and descriptive queries
@@ -154,7 +158,10 @@ class SearchClient(BaseClient):
             **kwargs: Additional parameters to pass to the API
             
         Returns:
-            Dictionary with search results and pagination info
+            Dictionary with search results and pagination info. Results include
+            matched_objects (each detected label with timestamps), match_details for
+            per-label confidences, optional video_analysis summaries, and urls.* when
+            generation flags are enabled.
             
         Tips:
             - Use common object names like "person", "car", "laptop", etc.
@@ -220,7 +227,10 @@ class SearchClient(BaseClient):
             **kwargs: Additional parameters to pass to the API
             
         Returns:
-            Dictionary with search results and pagination info
+            Dictionary with search results and pagination info. Each match includes
+            a match_details block (transcription/summary hits, genre/mood/instrument
+            confidence, matchedSegments metadata) plus urls.* when streamable or
+            download links are requested.
             
         Tips:
             - You must provide at least one of: query, genre, mood, or instruments
@@ -273,31 +283,45 @@ class SearchClient(BaseClient):
                        folder_path: str = None, page: int = 1, page_size: int = 20,
                        generate_thumbnail: bool = True, generate_streamable: bool = False, 
                        generate_download: bool = False, org_id: str = None, **kwargs) -> Dict:
-        """
-        Combined semantic search across different media types.
-        
+        """Combined semantic search across video, audio, and image analyzers.
+
         Args:
-            query: Text query for semantic search
-            media_types: List of media types to search ['video', 'audio', 'image']
-            media_source: Source of media ("user" or "stock")
-            folder_path: Path to search within (for user media only)
-            page: Page number for pagination
-            page_size: Number of results per page
-            generate_thumbnail: Whether to generate thumbnail URLs
-            generate_streamable: Whether to generate streamable URLs
-            generate_download: Whether to generate download URLs
-            org_id: Organization ID (uses default if not provided)
-            **kwargs: Additional parameters to pass to the API
-            
+            query: Natural-language phrase to match against summaries, tags, transcripts, OCR, and analyzer payloads.
+            media_types: Subset of ['video', 'audio', 'image']; defaults to all when omitted.
+            media_source: Search scope, either 'user' (requires org_id) or 'stock'.
+            folder_path: Optional normalized folder prefix to limit user media results.
+            page: Page number for pagination (1-indexed).
+            page_size: Items per page (max 100 enforced server-side).
+            generate_thumbnail: When True the API returns `urls.thumbnail_url`; disable to reduce response size.
+            generate_streamable: When True includes secure streaming URLs; increases response generation effort.
+            generate_download: When True includes direct download URLs; enable only when the client needs originals.
+            org_id: Organization identifier; falls back to ``self.default_org_id`` for user media.
+            **kwargs: Additional query parameters forwarded verbatim (future-proofing for backend flags).
+
         Returns:
-            Dictionary with search results and pagination info. Results include enhanced 'match_details' 
-            showing exactly where and how each file matched the query, including context and positions.
-            
+            dict: Response containing ``message``, ``count``, ``media_types`` echo, pagination metadata, and
+            ``results``. Each result bundles:
+                - core metadata (``media_type``, ``media_source``, filenames, tags, paths, upload timestamps)
+                - ``match_details`` with per-analyzer hits such as ``summary``, ``tags``, ``video_scenes``,
+                  ``video_transitions``, ``video_caption``, ``audio_transcription``, ``audio_caption``,
+                  ``audio_genres``, ``audio_intelligence``, ``image_ocr``, ``image_objects``, and
+                  ``matchedSegments`` / ``totalSegments`` for hierarchical context
+                - normalized helpers ``matchSources``, ``textMatches``, ``ocrMatches``, ``videoOcrScenes``,
+                  plus analyzer summaries (``audioDetails``, ``sceneDetails``, ``colorAnalysis``,
+                  ``colorMatches``, ``colorScenes``, ``strippedColorSegments``)
+                - ``urls`` populated with ``thumbnail_url`` / ``streamable_url`` / ``download_url`` when the
+                  corresponding ``generate_*`` flags are true
+
+        Raises:
+            ValueError: If the query is empty or contains unsupported media types.
+            TypeError: If the query is not a string.
+
         Tips:
-            - This is the most powerful search method that works across all media types
-            - Use natural language queries like "business meeting with presentation slides"
-            - Results will be ranked by relevance across videos, images, and audio
-            - Each result includes match_details showing where the query matched (summary, tags, transcriptions, etc.)
+            - Use descriptive prompts (e.g. "slow piano intro with ocean waves" or "presentation slide with growth chart").
+            - ``matchSources`` and ``textMatches`` provide a ready-to-render explanation for why each asset matched.
+            - Disable ``generate_thumbnail``/``generate_streamable``/``generate_download`` in high-throughput pipelines to
+              minimize response payload sizes.
+            - Set ``folder_path`` alongside ``media_source='user'`` to scope searches to departmental collections.
         """
         if not query:
             raise ValueError("query cannot be empty")

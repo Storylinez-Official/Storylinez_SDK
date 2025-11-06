@@ -34,7 +34,11 @@ def main():
             grade_type="single",
             deepthink=True,
             web_search=True,
-            temperature=0.8
+            temperature=0.8,
+            eco=True,
+            enable_content_analysis=True,
+            engine="bolt",
+            model_override="auto",
         )
         
         sequence_id = sequence_result.get("sequence", {}).get("sequence_id")
@@ -42,6 +46,7 @@ def main():
         
         print(f"Created sequence with ID: {sequence_id}")
         print(f"Sequence generation job ID: {job_id}")
+        print(f"Engine used: {sequence_result.get('sequence', {}).get('engine', 'not reported')}")
     except Exception as e:
         print(f"Error creating sequence: {str(e)}")
     

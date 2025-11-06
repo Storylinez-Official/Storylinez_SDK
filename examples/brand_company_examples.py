@@ -58,6 +58,37 @@ def main():
         if not os.path.exists(logo_path):
             print(f"Logo file not found at {logo_path}")
             print("Using alternative method to create a brand without a logo")
+
+            remote_logo_url = os.environ.get("STORYLINEZ_REMOTE_LOGO_URL")
+            if remote_logo_url:
+                print("Attempting to ingest remote logo via download_logo_from_url")
+                try:
+                    remote_logo = client.brand.download_logo_from_url(
+                        logo_url=remote_logo_url,
+                        org_id=ORG_ID,
+                    )
+                    upload_id = remote_logo.get("upload_id")
+                    logo_key = remote_logo.get("s3_key") or remote_logo.get("logo_key")
+                    if upload_id and logo_key:
+                        remote_brand = client.brand.create(
+                            name="Remote Logo Demo",
+                            upload_id=upload_id,
+                            logo_key=logo_key,
+                            outro_bg_color="#003366",
+                            main_text_color="#ffffff",
+                            subtitle_font="Montserrat-Bold",
+                            subtitle_color="#ffffff",
+                        )
+                        print(
+                            "Created brand from remote logo: "
+                            f"{remote_brand.get('name', 'Unknown Brand')}"
+                        )
+                    else:
+                        print("Remote logo ingestion did not return upload credentials")
+                except Exception as error:  # noqa: BLE001
+                    print(f"Unable to ingest remote logo: {error}")
+            else:
+                print("Set STORYLINEZ_REMOTE_LOGO_URL to demo remote logo ingestion")
             
             # Example 4: Create a brand without a logo
             print("\n=== Creating Brand Preset Without Logo ===")

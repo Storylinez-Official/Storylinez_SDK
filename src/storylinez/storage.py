@@ -7,6 +7,18 @@ import mimetypes
 from urllib.parse import urljoin
 import warnings
 from .base_client import BaseClient
+from .shared.validation import (
+    get_all_media_extensions,
+    get_allowed_media_formats,
+    get_allowed_models,
+    normalize_model,
+    validate_media_extension,
+)
+
+
+class UploadDurationExceededError(Exception):
+    """Raised when an uploaded media asset exceeds the allowed duration limit."""
+    pass
 
 class StorageClient(BaseClient):
     """
@@ -28,11 +40,7 @@ class StorageClient(BaseClient):
         self.storage_url = f"{self.base_url}/storage"
         
         # Define allowed media formats
-        self.allowed_formats = {
-            'VIDEO': ['mp4'],
-            'AUDIO': ['mp3', 'wav'], 
-            'IMAGE': ['jpg', 'jpeg', 'png']
-        }
+        self.allowed_formats = get_allowed_media_formats()
     
     # Helper method to validate file extensions
     def _validate_file_extension(self, filename: str) -> str:
@@ -48,19 +56,7 @@ class StorageClient(BaseClient):
         Raises:
             ValueError: If the file extension is not allowed
         """
-        extension = os.path.splitext(filename)[1].lower().lstrip('.')
-        if not extension:
-            raise ValueError(f"Filename '{filename}' has no extension")
-            
-        # Create a flat list of all allowed extensions
-        all_allowed_extensions = []
-        for formats in self.allowed_formats.values():
-            all_allowed_extensions.extend(formats)
-            
-        if extension not in all_allowed_extensions:
-            raise ValueError(f"File extension '{extension}' is not supported. Valid extensions are: {', '.join(all_allowed_extensions)}")
-            
-        return extension
+        return validate_media_extension(filename)
     
     # Helper methods
     def _require_org_id(self, org_id: str = None) -> str:
@@ -184,6 +180,37 @@ class StorageClient(BaseClient):
     def _convert_bool_to_str(self, value: bool) -> str:
         """Convert boolean to lowercase string for API"""
         return str(value).lower()
+
+    def get_allowed_analysis_models(self) -> Tuple[str, ...]:
+        """Return the supported analysis model aliases for file processing."""
+        return tuple(get_allowed_models('analysis'))
+
+    def _normalize_analysis_model(self, model: Optional[str]) -> Optional[str]:
+        """Validate and normalize the analysis model alias."""
+        if model is None:
+            return None
+
+        if not isinstance(model, str):
+            raise ValueError("Model alias must be a string or None")
+
+        normalized = model.strip()
+        if not normalized:
+            return None
+
+        try:
+            return normalize_model(normalized, domain='analysis')
+        except ValueError as exc:
+            allowed = "', '".join(get_allowed_models('analysis'))
+            raise ValueError(
+                f"Invalid analysis model alias '{model}'. Allowed values: '{allowed}'"
+            ) from exc
+
+    def _raise_for_upload_complete_error(self, error: Exception) -> None:
+        """Convert known upload completion errors into structured exceptions."""
+        message = str(error)
+        if "status 413" in message:
+            raise UploadDurationExceededError(message) from error
+        raise error
     
     # File Upload Methods
     def generate_upload_link(self, 
@@ -242,6 +269,8 @@ class StorageClient(BaseClient):
                 web_search: bool = False,
                 eco: bool = False,
                 temperature: float = 0.7,
+                advanced_detection: bool = True,
+                model: str = "auto",
                 org_id: str = None,
                 **kwargs) -> Dict:
         """
@@ -261,6 +290,8 @@ class StorageClient(BaseClient):
             web_search: Enable web search for analysis
             eco: Use eco-friendly processing
             temperature: AI temperature (0.0-1.0)
+            advanced_detection: Enable enhanced perception pipelines (default True)
+            model: Analysis model alias ('auto' or values from get_allowed_models('analysis'))
             org_id: Organization ID (uses default if not provided)
             **kwargs: Additional parameters for backwards compatibility
         
@@ -269,7 +300,7 @@ class StorageClient(BaseClient):
             
         Raises:
             FileNotFoundError: If file doesn't exist
-            ValueError: If temperature is out of range
+            ValueError: If temperature is out of range or the model alias is invalid
             Exception: If upload fails
         """
         org_id = self._require_org_id(org_id)
@@ -282,6 +313,8 @@ class StorageClient(BaseClient):
         # Validate temperature
         if not 0.0 <= temperature <= 1.0:
             raise ValueError("Temperature must be between 0.0 and 1.0")
+
+        normalized_model = self._normalize_analysis_model(model)
             
         # Generate upload link
         upload_info = self.generate_upload_link(
@@ -343,8 +376,12 @@ class StorageClient(BaseClient):
             "overdrive": overdrive,
             "web_search": web_search,
             "eco": eco,
-            "temperature": temperature
+            "temperature": temperature,
+            "advanced_detection": advanced_detection
         }
+
+        if normalized_model is not None:
+            completion_data["model"] = normalized_model
         
         # Additional parameters for backwards compatibility
         for key, value in kwargs.items():
@@ -352,7 +389,11 @@ class StorageClient(BaseClient):
                 completion_data[key] = value
         
         # Mark upload as complete and start processing
-        return self._make_request("POST", f"{self.storage_url}/upload/complete", json_data=completion_data)
+        try:
+            return self._make_request("POST", f"{self.storage_url}/upload/complete", json_data=completion_data)
+        except Exception as exc:
+            self._raise_for_upload_complete_error(exc)
+            raise
     
     def upload_and_process_files_bulk(
         self,
@@ -368,6 +409,8 @@ class StorageClient(BaseClient):
         web_search: bool = False,
         eco: bool = False,
         temperature: float = 0.7,
+        advanced_detection: bool = True,
+        model: str = "auto",
         org_id: str = None,
         progress_callback=None,
         poll_interval: int = 10,
@@ -396,6 +439,8 @@ class StorageClient(BaseClient):
             web_search (bool): Enable web search for analysis.
             eco (bool): Use eco-friendly processing.
             temperature (float): AI temperature (0.0-1.0).
+            advanced_detection (bool): Enable enhanced perception pipelines (default True).
+            model (str): Analysis model alias ('auto' or values from get_allowed_models('analysis')).
             org_id (str): Organization ID (uses default if not provided).
             progress_callback (callable): Called at various stages with detailed progress info.
             poll_interval (int): Seconds between polling processing status (default 10).
@@ -405,6 +450,8 @@ class StorageClient(BaseClient):
             List of results (success or error info for each file).
         """
         import time
+
+        normalized_model = self._normalize_analysis_model(model)
 
         results = []
         total = len(file_paths)
@@ -478,6 +525,8 @@ class StorageClient(BaseClient):
                     web_search=web_search,
                     eco=eco,
                     temperature=temperature,
+                    advanced_detection=advanced_detection,
+                    model=normalized_model,
                     org_id=org_id,
                     **kwargs
                 )
@@ -670,6 +719,8 @@ class StorageClient(BaseClient):
                     web_search: bool = False,
                     eco: bool = False,
                     temperature: float = 0.7,
+                    advanced_detection: bool = True,
+                    model: str = "auto",
                     org_id: str = None) -> Dict:
         """
         Upload file data directly from memory.
@@ -690,13 +741,15 @@ class StorageClient(BaseClient):
             web_search: Enable web search for analysis
             eco: Use eco-friendly processing
             temperature: AI temperature (0.0-1.0)
+            advanced_detection: Enable enhanced perception pipelines (default True)
+            model: Analysis model alias ('auto' or values from get_allowed_models('analysis'))
             org_id: Organization ID (uses default if not provided)
             
         Returns:
             Dictionary with file details
             
         Raises:
-            ValueError: For invalid parameters
+            ValueError: For invalid parameters or invalid model alias
             Exception: If upload fails
         """
         org_id = self._require_org_id(org_id)
@@ -724,6 +777,8 @@ class StorageClient(BaseClient):
         # Validate temperature
         if not 0.0 <= temperature <= 1.0:
             raise ValueError("Temperature must be between 0.0 and 1.0")
+
+        normalized_model = self._normalize_analysis_model(model)
             
         folder_path = self._validate_path(folder_path)
             
@@ -781,14 +836,22 @@ class StorageClient(BaseClient):
             "overdrive": overdrive,
             "web_search": web_search,
             "eco": eco,
-            "temperature": temperature
+            "temperature": temperature,
+            "advanced_detection": advanced_detection
         }
-        
+
+        if normalized_model is not None:
+            completion_data["model"] = normalized_model
+
         # Mark upload as complete and start processing
-        return self._make_request("POST", f"{self.storage_url}/upload/complete", json_data=completion_data)
+        try:
+            return self._make_request("POST", f"{self.storage_url}/upload/complete", json_data=completion_data)
+        except Exception as exc:
+            self._raise_for_upload_complete_error(exc)
+            raise
     
-    def mark_upload_complete(self, 
-                        upload_id: str, 
+    def mark_upload_complete(self,
+                        upload_id: str,
                         org_id: str = None,
                         filename: str = None,
                         mimetype: str = None,
@@ -803,6 +866,8 @@ class StorageClient(BaseClient):
                         web_search: bool = None,
                         eco: bool = None,
                         temperature: float = None,
+                        advanced_detection: bool = None,
+                        model: Optional[str] = None,
                         **kwargs) -> Dict:
         """
         Mark an upload as complete after uploading to the pre-signed URL.
@@ -823,6 +888,8 @@ class StorageClient(BaseClient):
             web_search: Enable web search for analysis
             eco: Use eco-friendly processing
             temperature: AI temperature (0.0-1.0)
+            advanced_detection: Enable advanced detection pipeline (beta).
+            model: Optional analysis model alias to override defaults.
             **kwargs: Additional parameters for backwards compatibility
         
         Returns:
@@ -882,13 +949,23 @@ class StorageClient(BaseClient):
             if not 0.0 <= temperature <= 1.0:
                 raise ValueError("Temperature must be between 0.0 and 1.0")
             data["temperature"] = temperature
+
+        if advanced_detection is not None:
+            data["advanced_detection"] = advanced_detection
+
+        if model is not None:
+            data["model"] = self._normalize_analysis_model(model)
         
         # Additional parameters for backwards compatibility
         for key, value in kwargs.items():
             if key not in data:
                 data[key] = value
         
-        return self._make_request("POST", f"{self.storage_url}/upload/complete", json_data=data)
+        try:
+            return self._make_request("POST", f"{self.storage_url}/upload/complete", json_data=data)
+        except Exception as exc:
+            self._raise_for_upload_complete_error(exc)
+            raise
     
     # Folder Methods
     def get_folder_contents(self, 
@@ -1643,14 +1720,14 @@ class StorageClient(BaseClient):
         
         # If file_extensions is provided, make sure they're all allowed
         if file_extensions:
-            all_allowed_extensions = []
-            for formats in self.allowed_formats.values():
-                all_allowed_extensions.extend(formats)
-                
+            allowed_extensions = get_all_media_extensions()
+            allowed_set = set(allowed_extensions)
             for ext in file_extensions:
                 ext = ext.lower().lstrip('.')
-                if ext not in all_allowed_extensions:
-                    raise ValueError(f"Extension '{ext}' is not in the list of allowed extensions: {', '.join(all_allowed_extensions)}")
+                if ext not in allowed_set:
+                    raise ValueError(
+                        f"Extension '{ext}' is not in the list of allowed extensions: {', '.join(allowed_extensions)}"
+                    )
         
         # Walk through directory
         for root, dirs, files in os.walk(local_dir):

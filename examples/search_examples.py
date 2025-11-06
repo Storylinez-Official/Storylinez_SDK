@@ -80,7 +80,8 @@ def main():
     combined_results = client.search.search_combined(
         query="business presentation with charts",
         media_types=["video", "image"],
-        generate_thumbnail=True
+        generate_thumbnail=True,
+        generate_streamable=True,
     )
     
     print(f"Found {combined_results.get('pagination', {}).get('total_results', 0)} matching items")
@@ -115,6 +116,28 @@ def main():
             elif item.get('media_type') == 'image' and 'image_ocr' in match_details:
                 for match in match_details['image_ocr'][:1]:
                     print(f"    - In image text: \"{match.get('context', '')}\"")
+
+        match_sources = item.get('matchSources') or item.get('match_sources')
+        if match_sources:
+            print(f"  * Primary sources: {', '.join(match_sources[:3])}")
+
+        text_matches = item.get('textMatches') or item.get('text_matches')
+        if text_matches:
+            snippet = text_matches[0].get('context', '') if isinstance(text_matches[0], dict) else text_matches[0]
+            print(f"  * Text snippet: {snippet[:80]}...")
+
+        audio_details = item.get('audioDetails') or item.get('audio_details')
+        if audio_details:
+            print(f"  * Audio summary: {audio_details.get('summary', '')[:80]}...")
+
+        urls = item.get('urls', {})
+        if urls:
+            thumb = urls.get('thumbnail_url')
+            streamable = urls.get('streamable_url')
+            if thumb:
+                print(f"  * Thumbnail URL: {thumb[:60]}...")
+            if streamable:
+                print(f"  * Streamable URL: {streamable[:60]}...")
     
     # Example 6: Search by tags across all media
     print("\n=== Searching by Tags ===")

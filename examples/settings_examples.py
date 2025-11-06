@@ -37,17 +37,20 @@ def main():
                 "temperature": 0.7,
                 "iterations": 3,
                 "deepthink": True,
-                "web_search": False
+                "web_search": False,
+                "eco": True,
             },
             link_preferences={
                 "generate_thumbnail": True,
                 "generate_streamable": False,
-                "generate_download": False
+                "generate_download": False,
+                "detail": True,
             },
             ui_preferences={
                 "dark_mode": True,
                 "default_view": "list",
-                "language": "en"
+                "language": "en",
+                "current_org_id": ORG_ID,
             }
         )
         print(f"Settings saved successfully: {result.get('message')}")
@@ -63,7 +66,9 @@ def main():
             dark_mode=True,
             language="en-US",
             generate_thumbnail=True,
-            generate_download=True
+            generate_download=True,
+            current_org_id=ORG_ID,
+            detail=True,
         )
         print(f"Settings saved successfully: {result.get('message')}")
     except Exception as e:

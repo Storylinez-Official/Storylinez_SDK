@@ -28,7 +28,7 @@ if ORG_ID == "your_org_id_here":
 # For local development, you might want to use a local server
 # Uncomment this line to use local server
 # BASE_URL = "http://localhost:5000"
-BASE_URL = "https://api.storylinez.com"
+BASE_URL = "https://api.storylinezads.com"
 
 def main():
     # Initialize the client with API credentials and default org_id
@@ -114,6 +114,8 @@ def demo_file_upload(client):
     analyze_audio = input("Analyze audio in media? (y/n, default: y): ").lower() != 'n'
     deepthink = input("Enable DeepThink for detailed analysis? (y/n, default: n): ").lower() == 'y'
     web_search = input("Enable web search during analysis? (y/n, default: n): ").lower() == 'y'
+    advanced_detection = input("Enable advanced detection pipelines? (y/n, default: y): ").lower() != 'n'
+    model_alias = input("Analysis model alias (auto, storylinez-1-turbo, etc.): ") or "auto"
     
     print(f"\nUploading {os.path.basename(file_path)} to {folder_path}...")
     
@@ -126,7 +128,9 @@ def demo_file_upload(client):
             tags=tags,
             analyze_audio=analyze_audio,
             deepthink=deepthink,
-            web_search=web_search
+            web_search=web_search,
+            advanced_detection=advanced_detection,
+            model=model_alias,
         )
         
         file_id = result["file"]["file_id"]
@@ -167,6 +171,8 @@ def demo_upload_files_bulk(client):
     overdrive = input("Enable Overdrive mode? (y/n, default: n): ").lower() == 'y'
     web_search = input("Enable web search during analysis? (y/n, default: n): ").lower() == 'y'
     eco = input("Enable Eco mode? (y/n, default: n): ").lower() == 'y'
+    advanced_detection = input("Enable advanced detection pipelines? (y/n, default: y): ").lower() != 'n'
+    model_alias = input("Analysis model alias for all files (auto, storylinez-1-turbo, etc.): ").strip() or "auto"
     temperature_input = input("Set temperature (float, default: 0.7): ").strip()
     try:
         temperature = float(temperature_input) if temperature_input else 0.7
@@ -207,6 +213,8 @@ def demo_upload_files_bulk(client):
             overdrive=overdrive,
             web_search=web_search,
             eco=eco,
+            advanced_detection=advanced_detection,
+            model=model_alias,
             temperature=temperature,
             org_id=org_id,
             polling_interval=polling_interval,

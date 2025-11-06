@@ -1,7 +1,4 @@
-import os
-import json
-import requests
-from typing import Dict, List, Optional, Union, Any
+from typing import Dict, Optional, Union, Any
 from .base_client import BaseClient
 
 class CompanyDetailsClient(BaseClient):
@@ -24,7 +21,7 @@ class CompanyDetailsClient(BaseClient):
         self.company_url = f"{self.base_url}/company"
     
     def create(self, 
-               company_name: str, 
+               company_name: str,
                company_type: str = "", 
                tag_line: str = "", 
                vision: str = "",
@@ -36,6 +33,7 @@ class CompanyDetailsClient(BaseClient):
                is_default: bool = False,
                others: Dict = None,
                org_id: str = None,
+               profile_type: str = "",
                **kwargs) -> Dict:
         """
         Create a new company details profile.
@@ -53,6 +51,7 @@ class CompanyDetailsClient(BaseClient):
             is_default: Whether to set as the default company details
             others: Additional custom fields as a dictionary
             org_id: Organization ID (uses default if not provided)
+            profile_type: Label for this company profile (persists as the `type` field)
             **kwargs: Additional parameters to pass to the API
             
         Returns:
@@ -79,6 +78,7 @@ class CompanyDetailsClient(BaseClient):
         data = {
             "org_id": org_id,
             "company_name": company_name,
+            "type": str(profile_type),
             "company_type": str(company_type),
             "tag_line": str(tag_line),
             "vision": str(vision),
@@ -242,6 +242,7 @@ class CompanyDetailsClient(BaseClient):
               link: str = None,
               is_default: bool = None,
               others: Dict = None,
+              profile_type: str = None,
               **kwargs) -> Dict:
         """
         Update a company details profile.
@@ -259,6 +260,7 @@ class CompanyDetailsClient(BaseClient):
             link: Company website or relevant link
             is_default: Whether to set as the default company details
             others: Additional custom fields
+            profile_type: Updated label for this company profile (maps to the `type` field)
             **kwargs: Additional parameters to pass to the API
             
         Returns:
@@ -275,6 +277,8 @@ class CompanyDetailsClient(BaseClient):
         # Process all the optional parameters, only including non-None values
         if company_name is not None:
             data["company_name"] = str(company_name)
+        if profile_type is not None:
+            data["type"] = str(profile_type)
         if company_type is not None:
             data["company_type"] = str(company_type)
         if tag_line is not None:
@@ -403,7 +407,7 @@ class CompanyDetailsClient(BaseClient):
         return self._make_request("POST", f"{self.company_url}/duplicate", json_data=data)
     
     def search(self, 
-              query: str, 
+              query: str = "", 
               field: str = "company_name", 
               page: int = 1, 
               limit: int = 10, 
@@ -460,6 +464,13 @@ class CompanyDetailsClient(BaseClient):
             print(f"Warning: '{order}' is not a valid sort order. Using 'desc' instead.")
             order = 'desc'
             
+        allowed_sort_fields = ['company_name', 'type', 'created_at', 'updated_at', 
+                               'tag_line', 'company_type', 'is_default']
+        if sort_by not in allowed_sort_fields:
+            print(f"Warning: '{sort_by}' is not a recognized sort field. Using 'created_at' instead.")
+            print(f"Valid sort fields are: {', '.join(allowed_sort_fields)}")
+            sort_by = 'created_at'
+
         params = {
             "org_id": org_id,
             "q": query,

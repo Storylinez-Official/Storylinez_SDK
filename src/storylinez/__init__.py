@@ -14,6 +14,12 @@ from .utils import UtilsClient
 from .settings import SettingsClient
 from .user import UserClient
 from .tools import ToolsClient
+from .v2_project import V2ProjectClient
+from .v2_context import V2ContextClient
+from .v2_effects import V2EffectsClient
+from .v2_schema import V2SchemaClient
+from .v2_sequence import V2SequenceClient
+from .v2_render import V2RenderClient
 
 __all__ = [
     'StorylinezClient', 
@@ -31,5 +37,11 @@ __all__ = [
     'UtilsClient',
     'SettingsClient',
     'UserClient',
-    'ToolsClient'
+    'ToolsClient',
+    'V2ProjectClient',
+    'V2ContextClient',
+    'V2EffectsClient',
+    'V2SchemaClient',
+    'V2SequenceClient',
+    'V2RenderClient'
 ]

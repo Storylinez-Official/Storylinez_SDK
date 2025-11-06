@@ -31,6 +31,7 @@ def main():
             # Video dimensions (must match project orientation)
             target_width=1920,
             target_height=1080,
+            standardize_resolution_enabled=True,
             # Audio settings
             bg_music_volume=0.5,
             video_audio_volume=0.7,
@@ -47,7 +48,15 @@ def main():
             # CTA settings
             call_to_action="Visit Our Website",
             call_to_action_subtext="www.acmecorp.com",
-            enable_cta=True
+            enable_cta=True,
+            # Advanced controls
+            extension_method="freeze",
+            adaptive_complexity=True,
+            recovery_mode="progressive",
+            add_blurred_background=True,
+            background_opacity=0.75,
+            framing_fill_bias=0.35,
+            watermark=False,
         )
         
         render_id = render_result.get("render", {}).get("render_id")

@@ -5,6 +5,7 @@ import warnings
 from typing import Dict, List, Optional, Union, Any, Tuple
 from datetime import datetime
 from .base_client import BaseClient
+from .shared.validation import normalize_engine, normalize_model, validate_eco_model_conflict, get_allowed_engines, get_allowed_models
 
 class SequenceClient(BaseClient):
     """
@@ -16,7 +17,13 @@ class SequenceClient(BaseClient):
     - Send natural language instructions as regeneration prompts
     - Leverage conversation history for contextual regeneration
     - Alternate between precise manual edits and AI-guided creative changes
+    
+    IMPORTANT: Sequence operations are only supported for v1 (legacy) projects.
+    For v2 (sequence builder) projects, use the /v2/sequence workflows instead.
     """
+    
+    # Cache for project types to avoid redundant lookups
+    _project_type_cache = {}
     
     def __init__(self, api_key: str, api_secret: str, base_url: str = "https://api.storylinezads.com", default_org_id: str = None):
         """
@@ -31,6 +38,65 @@ class SequenceClient(BaseClient):
         super().__init__(api_key, api_secret, base_url, default_org_id)
         self.sequence_url = f"{self.base_url}/sequence"
     
+    @staticmethod
+    def _normalize_project_type_hint(project_type: Optional[str]) -> Optional[str]:
+        """Normalize project type string to 'v1' or 'v2'."""
+        if not project_type:
+            return None
+        pt = project_type.lower().strip()
+        if pt in ('v1', 'legacy', '1'):
+            return 'v1'
+        if pt in ('v2', 'sequence_builder', '2'):
+            return 'v2'
+        return None
+    
+    def _get_project_type(self, project_id: str, project_type_hint: Optional[str] = None) -> str:
+        """
+        Get project type from cache or by fetching project details.
+        
+        Args:
+            project_id: ID of the project
+            project_type_hint: Optional project type hint ('v1', 'v2', etc.)
+            
+        Returns:
+            Project type ('v1' or 'v2')
+        """
+        normalized_hint = self._normalize_project_type_hint(project_type_hint)
+        if normalized_hint:
+            self._project_type_cache[project_id] = normalized_hint
+            return normalized_hint
+        
+        if project_id in self._project_type_cache:
+            return self._project_type_cache[project_id]
+        
+        # Fetch project to determine type
+        try:
+            project_url = f"{self.base_url}/projects/get"
+            response = self._make_request("GET", project_url, params={"project_id": project_id})
+            project_type = response.get('type', 'v1')
+            self._project_type_cache[project_id] = project_type
+            return project_type
+        except Exception:
+            return 'v1'  # Default to v1 for backward compatibility
+    
+    def _ensure_legacy_sequence_supported(self, project_id: str, project_type_hint: Optional[str] = None) -> None:
+        """
+        Ensure the project supports legacy sequence operations (v1 only).
+        
+        Args:
+            project_id: ID of the project
+            project_type_hint: Optional project type hint
+            
+        Raises:
+            ValueError: If project is v2 (not supported for legacy sequences)
+        """
+        project_type = self._get_project_type(project_id, project_type_hint)
+        if project_type == 'v2':
+            raise ValueError(
+                "Sequence operations are disabled for v2 sequence builder projects via legacy endpoints. "
+                "Use the /v2/sequence workflows instead."
+            )
+    
     # Sequence Creation and Retrieval
     
     def create_sequence(
@@ -42,10 +108,14 @@ class SequenceClient(BaseClient):
         orientation: str = None, 
         deepthink: bool = False, 
         overdrive: bool = False, 
-        web_search: bool = False, 
-        eco: bool = False, 
-        temperature: float = 0.7, 
+        web_search: bool = False,
+        eco: bool = False,
+        enable_content_analysis: Optional[bool] = None,
+        temperature: float = 0.7,
         iterations: int = 1,
+        engine: Optional[str] = None,
+        model_override: Optional[str] = None,
+        project_type: Optional[str] = None,
         **kwargs
     ) -> Dict:
         """
@@ -61,18 +131,25 @@ class SequenceClient(BaseClient):
             overdrive: Enable maximum quality and detail
             web_search: Enable web search for up-to-date information
             eco: Enable eco mode for faster processing
+            enable_content_analysis: Toggle context augmentation/content analysis for regeneration (defaults to project setting)
             temperature: AI temperature parameter (0.0-1.0)
             iterations: Number of refinement iterations
+            engine: Optional AI engine selection (e.g., 'gpt-4', 'claude-3.5-sonnet', etc.)
+            model_override: Optional model override for advanced control
+            project_type: Optional project type hint ('v1', 'v2', 'legacy', 'sequence_builder') to avoid extra API calls
             
         Returns:
             Dictionary with the created sequence details and job information
         
         Raises:
-            ValueError: For invalid parameter values
+            ValueError: For invalid parameter values or if project is v2
             Exception: If API request fails
         """
         if not project_id:
             raise ValueError("project_id is required")
+        
+        # Ensure project supports legacy sequences
+        self._ensure_legacy_sequence_supported(project_id, project_type)
         
         # Validate grade_type
         if grade_type not in ["single", "multi"]:
@@ -112,6 +189,26 @@ class SequenceClient(BaseClient):
         
         if orientation:
             data["orientation"] = orientation
+        
+        if enable_content_analysis is not None:
+            data["enable_content_analysis"] = bool(enable_content_analysis)
+
+        # Normalize and validate engine parameter
+        if engine is not None:
+            try:
+                data["engine"] = normalize_engine(engine)
+            except ValueError as e:
+                raise ValueError(f"{e}. Hint: Use one of {get_allowed_engines()}")
+        
+        # Normalize and validate model parameter
+        if model_override is not None:
+            try:
+                normalized_model = normalize_model(model_override, domain='narrative')
+                # Validate eco + custom model conflict
+                validate_eco_model_conflict(eco, normalized_model)
+                data["model_override"] = normalized_model
+            except ValueError as e:
+                raise ValueError(f"{e}. Hint: Allowed models are {get_allowed_models('narrative')}")
             
         # Add any additional kwargs for backward compatibility
         data.update(kwargs)
@@ -163,8 +260,12 @@ class SequenceClient(BaseClient):
         self, 
         sequence_id: str = None, 
         project_id: str = None,
-        include_history: bool = False, 
+        include_history: bool = True,
         regenerate_prompt: str = None,
+        engine: Optional[str] = None,
+        model_override: Optional[str] = None,
+        enable_content_analysis: Optional[bool] = None,
+        project_type: Optional[str] = None,
         **kwargs
     ) -> Dict:
         """
@@ -173,14 +274,18 @@ class SequenceClient(BaseClient):
         Args:
             sequence_id: ID of the sequence to regenerate (either this or project_id must be provided)
             project_id: ID of the project whose sequence to regenerate (either this or sequence_id must be provided)
-            include_history: Whether to include sequence history as context for regeneration
+            include_history: Whether to include sequence history as context for regeneration (defaults to True)
             regenerate_prompt: Custom prompt to guide regeneration with specific instructions
+            engine: Optional engine override to use for regeneration (e.g., "openai-gpt4", "anthropic-claude")
+            model_override: Optional model override for fine-grained control of the AI model
+            enable_content_analysis: Whether to enable or disable content analysis/context augmentation during regeneration
+            project_type: Optional project type hint to avoid extra API calls
             
         Returns:
             Dictionary with the regeneration job details
             
         Raises:
-            ValueError: If neither sequence_id nor project_id is provided
+            ValueError: If neither sequence_id nor project_id is provided or if project is v2
             
         Chat Experience Notes:
             - This method is key to the chat-like experience, enabling you to send instructions
@@ -197,8 +302,56 @@ class SequenceClient(BaseClient):
         """
         if not sequence_id and not project_id:
             raise ValueError("Either sequence_id or project_id must be provided")
+        
+        # If we have project_id directly, validate it
+        sequence_data: Optional[Dict] = None
+        pid_to_check = project_id
+        if sequence_id:
+            sequence_data = self.get_sequence(
+                sequence_id=sequence_id,
+                include_results=False,
+                include_storyboard=False
+            )
+            if not pid_to_check:
+                pid_to_check = sequence_data.get('project_id')
+        
+        if pid_to_check:
+            self._ensure_legacy_sequence_supported(pid_to_check, project_type)
             
         data = {"include_history": include_history}
+
+        if engine is not None:
+            try:
+                data["engine"] = normalize_engine(engine)
+            except ValueError as e:
+                raise ValueError(f"{e}. Hint: Use one of {get_allowed_engines()}")
+
+        if model_override is not None:
+            try:
+                normalized_model = normalize_model(model_override, domain='narrative')
+            except ValueError as e:
+                raise ValueError(f"{e}. Hint: Allowed models are {get_allowed_models('narrative')}")
+
+            if sequence_data is None:
+                if sequence_id:
+                    sequence_data = self.get_sequence(
+                        sequence_id=sequence_id,
+                        include_results=False,
+                        include_storyboard=False
+                    )
+                elif project_id:
+                    sequence_data = self.get_sequence(
+                        project_id=project_id,
+                        include_results=False,
+                        include_storyboard=False
+                    )
+
+            eco_enabled = bool(sequence_data.get('eco', False)) if sequence_data else False
+            validate_eco_model_conflict(eco_enabled, normalized_model)
+            data["model_override"] = normalized_model
+
+        if enable_content_analysis is not None:
+            data["enable_content_analysis"] = bool(enable_content_analysis)
         
         if sequence_id:
             data["sequence_id"] = sequence_id
@@ -217,6 +370,7 @@ class SequenceClient(BaseClient):
         sequence_id: str = None, 
         project_id: str = None, 
         update_ai_params: bool = True,
+        project_type: Optional[str] = None,
         **kwargs
     ) -> Dict:
         """
@@ -227,12 +381,13 @@ class SequenceClient(BaseClient):
             sequence_id: ID of the sequence to update (either this or project_id must be provided)
             project_id: ID of the project whose sequence to update (either this or sequence_id must be provided)
             update_ai_params: Whether to update AI parameters from the project's storyboard
+            project_type: Optional project type hint to avoid extra API calls
             
         Returns:
             Dictionary with update confirmation
             
         Raises:
-            ValueError: If neither sequence_id nor project_id is provided
+            ValueError: If neither sequence_id nor project_id is provided or if project is v2
             
         Notes:
             This method only updates the sequence with the latest data but does not regenerate it.
@@ -241,6 +396,16 @@ class SequenceClient(BaseClient):
         """
         if not sequence_id and not project_id:
             raise ValueError("Either sequence_id or project_id must be provided")
+        
+        # If we have project_id directly, validate it
+        pid_to_check = project_id
+        if not pid_to_check and sequence_id:
+            # Need to fetch sequence to get project_id
+            seq = self.get_sequence(sequence_id=sequence_id)
+            pid_to_check = seq.get('project_id')
+        
+        if pid_to_check:
+            self._ensure_legacy_sequence_supported(pid_to_check, project_type)
             
         data = {"update_ai_params": update_ai_params}
         
@@ -264,12 +429,16 @@ class SequenceClient(BaseClient):
         orientation: str = None,
         deepthink: bool = None, 
         overdrive: bool = None,
-        web_search: bool = None, 
-        eco: bool = None,
-        temperature: float = None, 
-        iterations: int = None,
+    web_search: bool = None, 
+    eco: bool = None,
+    engine: Optional[str] = None,
+    model_override: Optional[str] = None,
+    enable_content_analysis: Optional[bool] = None,
+    temperature: float = None, 
+    iterations: int = None,
         regenerate_prompt: str = None, 
         edited_sequence: Dict = None,
+        project_type: Optional[str] = None,
         **kwargs
     ) -> Dict:
         """
@@ -286,22 +455,40 @@ class SequenceClient(BaseClient):
             overdrive: Enable maximum quality and detail
             web_search: Enable web search for up-to-date information
             eco: Enable eco mode for faster processing
+            engine: Optional AI engine override to persist for subsequent regenerations
+            model_override: Optional model alias override (use 'auto' to return to default model selection)
+            enable_content_analysis: Toggle context augmentation/content analysis for downstream regenerations
             temperature: AI temperature parameter (0.0-1.0)
             iterations: Number of refinement iterations
             regenerate_prompt: Optional prompt to guide regeneration
             edited_sequence: Complete edited sequence structure
+            project_type: Optional project type hint to avoid extra API calls
             
         Returns:
             Dictionary with the update confirmation
             
         Raises:
-            ValueError: If neither sequence_id nor project_id is provided or for invalid parameters
+            ValueError: If neither sequence_id nor project_id is provided, for invalid parameters, or if project is v2
             
         Notes:
             Changes are only saved but not applied - use redo_sequence() after updating to regenerate
         """
         if not sequence_id and not project_id:
             raise ValueError("Either sequence_id or project_id must be provided")
+        
+        # If we have project_id directly, validate it
+        sequence_data: Optional[Dict] = None
+        pid_to_check = project_id
+        if not pid_to_check and sequence_id:
+            sequence_data = self.get_sequence(
+                sequence_id=sequence_id,
+                include_results=False,
+                include_storyboard=False
+            )
+            pid_to_check = sequence_data.get('project_id')
+        
+        if pid_to_check:
+            self._ensure_legacy_sequence_supported(pid_to_check, project_type)
         
         # Validate parameters if provided
         if grade_type is not None and grade_type not in ["single", "multi"]:
@@ -338,6 +525,45 @@ class SequenceClient(BaseClient):
             data["web_search"] = web_search
         if eco is not None:
             data["eco"] = eco
+        if engine is not None:
+            try:
+                data["engine"] = normalize_engine(engine)
+            except ValueError as e:
+                raise ValueError(f"{e}. Hint: Use one of {get_allowed_engines()}")
+        if model_override is not None:
+            if isinstance(model_override, str) and model_override.strip().lower() == "auto":
+                data["model_override"] = "auto"
+            else:
+                try:
+                    normalized_model = normalize_model(model_override, domain='narrative')
+                except ValueError as e:
+                    allowed_models = get_allowed_models('narrative')
+                    raise ValueError(f"{e}. Hint: Allowed models are {allowed_models}")
+
+                if sequence_data is None:
+                    if sequence_id:
+                        sequence_data = self.get_sequence(
+                            sequence_id=sequence_id,
+                            include_results=False,
+                            include_storyboard=False
+                        )
+                    elif project_id:
+                        sequence_data = self.get_sequence(
+                            project_id=project_id,
+                            include_results=False,
+                            include_storyboard=False
+                        )
+
+                if eco is not None:
+                    eco_enabled = bool(eco)
+                elif sequence_data:
+                    eco_enabled = bool(sequence_data.get('eco', False))
+                else:
+                    eco_enabled = False
+                validate_eco_model_conflict(eco_enabled, normalized_model)
+                data["model_override"] = normalized_model
+        if enable_content_analysis is not None:
+            data["enable_content_analysis"] = bool(enable_content_analysis)
         if temperature is not None:
             data["temperature"] = float(temperature)
         if iterations is not None:
@@ -480,6 +706,7 @@ class SequenceClient(BaseClient):
         sequence_id: str, 
         array_type: str, 
         new_order: List[int],
+        project_type: Optional[str] = None,
         **kwargs
     ) -> Dict:
         """
@@ -489,12 +716,13 @@ class SequenceClient(BaseClient):
             sequence_id: ID of the sequence to modify
             array_type: Type of array to modify ("clips" or "audios")
             new_order: List of indices in the new order
+            project_type: Optional project type hint to avoid extra API calls
             
         Returns:
             Dictionary with operation confirmation
             
         Raises:
-            ValueError: If parameters are invalid or missing
+            ValueError: If parameters are invalid, missing, or if project is v2
             
         Example:
             # Swap first and second clips
@@ -502,6 +730,12 @@ class SequenceClient(BaseClient):
         """
         if not sequence_id:
             raise ValueError("sequence_id is required")
+        
+        # Fetch sequence to get project_id and validate
+        seq = self.get_sequence(sequence_id=sequence_id)
+        pid_to_check = seq.get('project_id')
+        if pid_to_check:
+            self._ensure_legacy_sequence_supported(pid_to_check, project_type)
             
         if array_type not in ['clips', 'audios']:
             raise ValueError("array_type must be either 'clips' or 'audios'")
@@ -528,6 +762,7 @@ class SequenceClient(BaseClient):
         updated_item: Dict = None,
         file_id: str = None,
         stock_id: str = None,
+        project_type: Optional[str] = None,
         **kwargs
     ) -> Dict:
         """
@@ -540,15 +775,22 @@ class SequenceClient(BaseClient):
             updated_item: Updated item data
             file_id: Optional file ID to replace the media (alternative to providing in updated_item)
             stock_id: Optional stock media ID to replace the media
+            project_type: Optional project type hint to avoid extra API calls
             
         Returns:
             Dictionary with operation confirmation
             
         Raises:
-            ValueError: If parameters are invalid or missing
+            ValueError: If parameters are invalid, missing, or if project is v2
         """
         if not sequence_id:
             raise ValueError("sequence_id is required")
+        
+        # Fetch sequence to get project_id and validate
+        seq = self.get_sequence(sequence_id=sequence_id)
+        pid_to_check = seq.get('project_id')
+        if pid_to_check:
+            self._ensure_legacy_sequence_supported(pid_to_check, project_type)
             
         if item_type not in ['clips', 'audios', 'voiceover']:
             raise ValueError("item_type must be one of: 'clips', 'audios', 'voiceover'")
@@ -589,6 +831,7 @@ class SequenceClient(BaseClient):
         file_id: str = None, 
         stock_id: str = None, 
         path: str = None,
+        project_type: Optional[str] = None,
         **kwargs
     ) -> Dict:
         """
@@ -601,12 +844,13 @@ class SequenceClient(BaseClient):
             file_id: ID of the file to use (one of file_id, stock_id, or path must be provided)
             stock_id: ID of the stock media to use (one of file_id, stock_id, or path must be provided)
             path: Direct path to the media file (one of file_id, stock_id, or path must be provided)
+            project_type: Optional project type hint to avoid extra API calls
             
         Returns:
             Dictionary with operation confirmation
             
         Raises:
-            ValueError: If parameters are invalid or missing
+            ValueError: If parameters are invalid, missing, or if project is v2
             
         Notes:
             Use this method for simple media replacement. For more complex changes,
@@ -614,6 +858,12 @@ class SequenceClient(BaseClient):
         """
         if not sequence_id:
             raise ValueError("sequence_id is required")
+        
+        # Fetch sequence to get project_id and validate
+        seq = self.get_sequence(sequence_id=sequence_id)
+        pid_to_check = seq.get('project_id')
+        if pid_to_check:
+            self._ensure_legacy_sequence_supported(pid_to_check, project_type)
             
         if item_type not in ['clips', 'audios', 'voiceover']:
             raise ValueError("item_type must be one of: 'clips', 'audios', 'voiceover'")

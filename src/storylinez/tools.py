@@ -35,8 +35,8 @@ class ToolsClient(BaseClient):
             "shotlist",
             "ad_concept",
             "scene_transitions",
-            "scene_splitter",
-            "web_scraper_advanced"
+            "web_scraper_advanced",
+            "trend_analysis",
         ]
     
     def get_tool_types(self) -> Dict:
@@ -165,6 +165,7 @@ class ToolsClient(BaseClient):
             
         Raises:
             ValueError: If required parameters are missing or invalid
+            RuntimeError: Always raised because the API no longer exposes this tool
             
         Example:
             >>> client.tools.create_creative_brief(
@@ -725,6 +726,98 @@ class ToolsClient(BaseClient):
         
         return self._make_request("POST", f"{self.tools_url}/create", json_data=data)
     
+    def create_trend_analysis(
+        self,
+        name: str,
+        topic: str,
+        org_id: str = None,
+        *,
+        location: str = "worldwide",
+        temperature: float = 0.7,
+        deepthink: bool = False,
+        overdrive: bool = False,
+        eco: bool = False,
+        **kwargs: Any,
+    ) -> Dict:
+        """Launch a trend analysis job against curated keyword buckets."""
+        if not name:
+            raise ValueError("Name is required")
+        if not topic:
+            raise ValueError("topic is required")
+
+        org_id = self._validate_org_id(org_id)
+        temperature = self._validate_temperature(temperature)
+
+        allowed_topics = {
+            "artificial_intelligence_ml",
+            "programming_development",
+            "data_science",
+            "cybersecurity_infosec",
+            "startups_entrepreneurship",
+            "ux_ui_design",
+            "marketing_digital",
+            "personal_finance",
+            "investing_trading",
+            "cryptocurrency_blockchain",
+            "health_fitness",
+            "mental_health_wellbeing",
+            "productivity",
+            "cooking_food",
+            "travel",
+            "photography",
+            "gaming",
+            "movies_tv",
+            "music",
+            "books_reading",
+            "science_general",
+            "space",
+            "diy_home",
+            "sports",
+        }
+        normalized_topic = str(topic)
+        if normalized_topic not in allowed_topics:
+            raise ValueError(
+                "topic must be one of: " + ", ".join(sorted(allowed_topics))
+            )
+
+        allowed_locations = {
+            "US",
+            "GB",
+            "CA",
+            "AU",
+            "DE",
+            "FR",
+            "JP",
+            "IN",
+            "BR",
+            "MX",
+            "worldwide",
+            "",
+        }
+        normalized_location = str(location).upper() if location != "worldwide" else "worldwide"
+        if normalized_location not in allowed_locations:
+            raise ValueError(
+                "location must be one of: " + ", ".join(sorted(allowed_locations))
+            )
+
+        payload = {
+            "tool_type": "trend_analysis",
+            "org_id": org_id,
+            "name": name,
+            "input_data": {
+                "topic": normalized_topic,
+                "location": normalized_location,
+                "temperature": temperature,
+            },
+            "deepthink": deepthink,
+            "overdrive": overdrive,
+            "web_search": False,
+            "eco": eco,
+        }
+        payload.update(kwargs)
+
+        return self._make_request("POST", f"{self.tools_url}/create", json_data=payload)
+
     # Scene Splitter Tool
     def create_scene_splitter(
         self,
@@ -765,31 +858,7 @@ class ToolsClient(BaseClient):
         if not bucket_name:
             raise ValueError("bucket_name is required")
             
-        # Validate org_id
-        org_id = self._validate_org_id(org_id)
-        
-        # Validate video file extension
-        _, ext = os.path.splitext(video_path)
-        ext = ext.lower().lstrip('.')
-        
-        if not ext or ext not in self.valid_video_formats:
-            raise ValueError(
-                f"Invalid video file extension: {ext if ext else 'none'}. "
-                f"Supported formats are: {', '.join(self.valid_video_formats)}"
-            )
-                
-        data = {
-            "tool_type": "scene_splitter",
-            "org_id": org_id,
-            "name": name,
-            "video_path": video_path,
-            "bucket_name": bucket_name
-        }
-        
-        # Add any additional parameters from kwargs
-        data.update(kwargs)
-        
-        return self._make_request("POST", f"{self.tools_url}/create", json_data=data)
+        raise RuntimeError("The scene_splitter tool has been retired from the Storylinez API.")
     
     # Web Scraper Advanced Tool
     def create_web_scraper_advanced(
@@ -797,14 +866,15 @@ class ToolsClient(BaseClient):
         name: str,
         website_url: str,
         org_id: str = None,
-        depth: int = 2,
-        max_pages: int = 5,
+    depth: int = 1,
+    max_pages: int = 5,
         max_text_chars: int = 20000,
-        enable_js: bool = True,
-        parallel: bool = True,
+    enable_js: bool = False,
+    parallel: bool = False,
         retry_count: int = 2,
-        retry_delay: int = 1,
-        timeout: int = 16,
+    retry_delay: float = 1.0,
+    timeout: int = 15,
+    max_batch_size: int = 5,
         documents: List[Dict] = None,
         deepthink: bool = False,
         overdrive: bool = False,
@@ -819,14 +889,15 @@ class ToolsClient(BaseClient):
             name: Name for the web scraping job
             website_url: The URL of the website to scrape
             org_id: Organization ID (uses default if not provided)
-            depth: How deep to crawl links (default: 2)
+            depth: How deep to crawl links (default: 1)
             max_pages: Maximum number of pages to scrape (default: 5)
             max_text_chars: Maximum number of text characters to extract (default: 20000)
-            enable_js: Enable JavaScript rendering (default: True)
-            parallel: Enable parallel scraping (default: True)
+            enable_js: Enable JavaScript rendering (default: False)
+            parallel: Enable parallel scraping (default: False)
             retry_count: Number of retry attempts (default: 2)
-            retry_delay: Delay between retries in seconds (default: 1)
-            timeout: Timeout for each page in seconds (default: 16)
+            retry_delay: Delay between retries in seconds (default: 1.0)
+            timeout: Timeout for each page in seconds (default: 15)
+            max_batch_size: Maximum concurrent requests per batch when parallel scraping (default: 5)
             documents: Optional list of document contexts to consider
             deepthink: Enable advanced thinking for complex topics (default: False)
             overdrive: Enable maximum quality and detail (default: False)
@@ -855,6 +926,32 @@ class ToolsClient(BaseClient):
             raise ValueError("website_url is required")
         org_id = self._validate_org_id(org_id)
         documents = self._format_document_list(documents)
+
+        if not isinstance(enable_js, bool):
+            raise ValueError("enable_js must be a boolean")
+        if not isinstance(parallel, bool):
+            raise ValueError("parallel must be a boolean")
+
+        if depth < 0:
+            raise ValueError("depth must be non-negative")
+        if max_pages < 1:
+            raise ValueError("max_pages must be at least 1")
+        if max_text_chars < 1:
+            raise ValueError("max_text_chars must be at least 1")
+        if max_batch_size < 1:
+            raise ValueError("max_batch_size must be at least 1")
+        if retry_count < 0:
+            raise ValueError("retry_count must be zero or greater")
+        if retry_delay < 0:
+            raise ValueError("retry_delay must be zero or greater")
+        if timeout < 1:
+            raise ValueError("timeout must be at least 1")
+
+        # Apply server-side constraint mirrors
+        depth = min(depth, 3)
+        max_pages = min(max_pages, 20)
+        timeout = min(timeout, 60)
+        max_batch_size = min(max_batch_size, 10)
         data = {
             "tool_type": "web_scraper_advanced",
             "org_id": org_id,
@@ -869,6 +966,7 @@ class ToolsClient(BaseClient):
             "retry_delay": retry_delay,
             "timeout": timeout,
             "documents": documents,
+            "max_batch_size": max_batch_size,
             "deepthink": deepthink,
             "overdrive": overdrive,
             "web_search": web_search,

@@ -5,6 +5,7 @@ import warnings
 from typing import Dict, List, Optional, Union, Any, Tuple
 from datetime import datetime
 from .base_client import BaseClient
+from .shared.validation import normalize_engine, normalize_model, validate_eco_model_conflict, get_allowed_engines, get_allowed_models
 
 class StoryboardClient(BaseClient):
     """
@@ -30,6 +31,45 @@ class StoryboardClient(BaseClient):
         """
         super().__init__(api_key, api_secret, base_url, default_org_id)
         self.storyboard_url = f"{self.base_url}/storyboard"
+        self._project_type_cache: Dict[str, str] = {}
+
+    @staticmethod
+    def _normalize_project_type_hint(project_type: Optional[str]) -> Optional[str]:
+        """Normalize optional project type hints to canonical lowercase values."""
+        if project_type is None:
+            return None
+        if not isinstance(project_type, str):
+            raise ValueError("project_type must be provided as 'v1' or 'v2'")
+        normalized = project_type.strip().lower()
+        if normalized not in {"v1", "v2"}:
+            raise ValueError("project_type must be either 'v1' or 'v2'")
+        return normalized
+
+    def _get_project_type(self, project_id: str) -> str:
+        """Fetch and cache project type information for storyboard guard rails."""
+        cached = self._project_type_cache.get(project_id)
+        if cached:
+            return cached
+
+        response = self._make_request(
+            "GET",
+            f"{self.base_url}/projects/get_one",
+            params={"project_id": project_id}
+        )
+        project_type = (response.get("type") or "v1").lower()
+        self._project_type_cache[project_id] = project_type
+        return project_type
+
+    def _ensure_legacy_storyboard_supported(self, project_id: str, project_type: Optional[str]) -> str:
+        """Raise when attempting to use legacy storyboard APIs for v2 projects."""
+        normalized_hint = self._normalize_project_type_hint(project_type)
+        resolved_type = normalized_hint or self._get_project_type(project_id)
+        if resolved_type == "v2":
+            raise ValueError(
+                "Storyboards for v2 sequence builder projects must use the /v2 workflows. "
+                "Legacy /storyboard endpoints are available for v1 projects only."
+            )
+        return resolved_type
     
     # Storyboard Creation and Management
     
@@ -46,6 +86,10 @@ class StoryboardClient(BaseClient):
         voiceover_mode: str = "generated", 
         skip_voiceover: bool = False,
         documents: Union[None, str, List[str]] = None,
+        engine: Optional[str] = None,
+        model: Optional[str] = None,
+        model_override: Optional[str] = None,
+        project_type: Optional[str] = None,
         **kwargs
     ) -> Dict:
         """
@@ -63,6 +107,10 @@ class StoryboardClient(BaseClient):
             voiceover_mode: Voiceover mode ('generated' or 'uploaded')
             skip_voiceover: Whether to skip generating voiceover
             documents: List of document IDs or a single document ID to include in the storyboard
+            engine: Optional AI engine selection (e.g., 'gpt-4', 'claude-3.5-sonnet', etc.)
+            model: Optional model specification for backward compatibility
+            model_override: Optional model override for advanced control
+            project_type: Optional hint ('v1' or 'v2') to avoid an extra project lookup when enforcing legacy guards
             **kwargs: Additional parameters to pass to the API
             
         Returns:
@@ -74,6 +122,8 @@ class StoryboardClient(BaseClient):
         """
         if not project_id:
             raise ValueError("project_id is required")
+
+        self._ensure_legacy_storyboard_supported(project_id, project_type)
             
         # Parameter validation and conversion
         try:
@@ -124,6 +174,24 @@ class StoryboardClient(BaseClient):
         
         if full_length is not None:
             data["full_length"] = full_length
+        
+        # Normalize and validate engine parameter
+        if engine is not None:
+            try:
+                data["engine"] = normalize_engine(engine)
+            except ValueError as e:
+                raise ValueError(f"{e}. Hint: Use one of {get_allowed_engines()}")
+        
+        # Normalize and validate model parameters
+        effective_model = model_override or model
+        if effective_model is not None:
+            try:
+                normalized_model = normalize_model(effective_model, domain='narrative')
+                # Validate eco + custom model conflict
+                validate_eco_model_conflict(eco, normalized_model)
+                data["model_override"] = normalized_model
+            except ValueError as e:
+                raise ValueError(f"{e}. Hint: Allowed models are {get_allowed_models('narrative')}")
             
         # Ensure documents is always a list of strings if provided
         if documents is not None:
@@ -148,6 +216,7 @@ class StoryboardClient(BaseClient):
         project_id: Optional[str] = None, 
         include_results: bool = False, 
         include_details: bool = False,
+        project_type: Optional[str] = None,
         **kwargs
     ) -> Dict:
         """
@@ -158,6 +227,7 @@ class StoryboardClient(BaseClient):
             project_id: ID of the project to retrieve the storyboard for (either this or storyboard_id must be provided)
             include_results: Whether to include job results (may return large response)
             include_details: Whether to include media details (stock videos, audio, etc.)
+            project_type: Optional hint ('v1' or 'v2') to avoid an extra project lookup when enforcing legacy guards
             **kwargs: Additional parameters to pass to the API
             
         Returns:
@@ -178,6 +248,7 @@ class StoryboardClient(BaseClient):
         if storyboard_id:
             params["storyboard_id"] = storyboard_id
         if project_id:
+            self._ensure_legacy_storyboard_supported(project_id, project_type)
             params["project_id"] = project_id
             
         # Add any additional parameters from kwargs
@@ -192,6 +263,7 @@ class StoryboardClient(BaseClient):
         storyboard_id: Optional[str] = None, 
         project_id: Optional[str] = None, 
         update_ai_params: bool = True,
+        project_type: Optional[str] = None,
         **kwargs
     ) -> Dict:
         """
@@ -201,6 +273,7 @@ class StoryboardClient(BaseClient):
             storyboard_id: ID of the storyboard to update (either this or project_id must be provided)
             project_id: ID of the project whose storyboard to update (either this or storyboard_id must be provided)
             update_ai_params: Whether to update AI parameters from the project's prompt
+            project_type: Optional hint ('v1' or 'v2') to avoid an extra project lookup when enforcing legacy guards
             **kwargs: Additional parameters to pass to the API
             
         Returns:
@@ -222,6 +295,7 @@ class StoryboardClient(BaseClient):
         if storyboard_id:
             data["storyboard_id"] = storyboard_id
         if project_id:
+            self._ensure_legacy_storyboard_supported(project_id, project_type)
             data["project_id"] = project_id
             
         # Add any additional parameters from kwargs
@@ -247,6 +321,7 @@ class StoryboardClient(BaseClient):
         skip_voiceover: Optional[bool] = None,
         voiceover_mode: Optional[str] = None,
         documents: Union[None, str, List[str]] = None,
+        project_type: Optional[str] = None,
         **kwargs
     ) -> Dict:
         """
@@ -267,6 +342,7 @@ class StoryboardClient(BaseClient):
             skip_voiceover: Whether to skip generating voiceover
             voiceover_mode: Voiceover mode ('generated' or 'uploaded')
             documents: List of document IDs or a single document ID to include in the storyboard
+            project_type: Optional hint ('v1' or 'v2') to avoid an extra project lookup when enforcing legacy guards
             **kwargs: Additional parameters to pass to the API
             
         Returns:
@@ -288,6 +364,7 @@ class StoryboardClient(BaseClient):
         if storyboard_id:
             data["storyboard_id"] = storyboard_id
         if project_id:
+            self._ensure_legacy_storyboard_supported(project_id, project_type)
             data["project_id"] = project_id
             
         # Parameter validation and conversion
@@ -377,6 +454,7 @@ class StoryboardClient(BaseClient):
         project_id: Optional[str] = None,
         regeneration_prompt: Optional[str] = None,
         include_history: bool = False,
+        project_type: Optional[str] = None,
         **kwargs
     ) -> Dict:
         """
@@ -387,6 +465,7 @@ class StoryboardClient(BaseClient):
             project_id: ID of the project whose storyboard to redo (either this or storyboard_id must be provided)
             regeneration_prompt: Custom prompt to guide regeneration with specific instructions (chat-like guidance)
             include_history: Whether to include history as context for regeneration (provides AI with conversation history)
+            project_type: Optional hint ('v1' or 'v2') to avoid an extra project lookup when enforcing legacy guards
             **kwargs: Additional parameters to pass to the API
             
         Returns:
@@ -417,6 +496,7 @@ class StoryboardClient(BaseClient):
         if storyboard_id:
             data["storyboard_id"] = storyboard_id
         if project_id:
+            self._ensure_legacy_storyboard_supported(project_id, project_type)
             data["project_id"] = project_id
         if regeneration_prompt:
             data["regeneration_prompt"] = regeneration_prompt
@@ -635,7 +715,7 @@ class StoryboardClient(BaseClient):
             if key not in data:
                 data[key] = value
             
-        return self._.make_request("PUT", f"{self.storyboard_url}/change_media", json_data=data)
+        return self._make_request("PUT", f"{self.storyboard_url}/change_media", json_data=data)
     
     # Storyboard History and Media
     
@@ -729,6 +809,7 @@ class StoryboardClient(BaseClient):
         generate_thumbnail: bool = True,
         generate_streamable: bool = True, 
         generate_download: bool = False,
+        project_type: Optional[str] = None,
         **kwargs
     ) -> Dict:
         """
@@ -741,6 +822,7 @@ class StoryboardClient(BaseClient):
             generate_thumbnail: Whether to generate thumbnail URLs for videos/images
             generate_streamable: Whether to generate streamable URLs for videos/audio
             generate_download: Whether to generate download URLs (enabling increases API response time)
+            project_type: Optional hint ('v1' or 'v2') to avoid an extra project lookup when enforcing legacy guards
             **kwargs: Additional parameters to pass to the API
             
         Returns:
@@ -766,6 +848,7 @@ class StoryboardClient(BaseClient):
         if storyboard_id:
             params["storyboard_id"] = storyboard_id
         if project_id:
+            self._ensure_legacy_storyboard_supported(project_id, project_type)
             params["project_id"] = project_id
             
         # Add any additional parameters from kwargs
@@ -783,7 +866,8 @@ class StoryboardClient(BaseClient):
         project_id: Optional[str] = None,
         regeneration_prompt: Optional[str] = None,
         update_ai_params: bool = True, 
-        include_history: bool = True
+        include_history: bool = True,
+        project_type: Optional[str] = None
     ) -> Dict:
         """
         Convenience method that updates a storyboard with latest project data and then regenerates it.
@@ -794,6 +878,7 @@ class StoryboardClient(BaseClient):
             regeneration_prompt: Optional prompt to guide the regeneration
             update_ai_params: Whether to update AI parameters from the project's prompt
             include_history: Whether to include history as context for regeneration
+            project_type: Optional hint ('v1' or 'v2') to avoid an extra project lookup when enforcing legacy guards
             
         Returns:
             Dictionary with the job information for the regeneration
@@ -813,6 +898,7 @@ class StoryboardClient(BaseClient):
             
             self.update_storyboard_values(
                 regeneration_prompt=regeneration_prompt, 
+                project_type=project_type,
                 **update_params
             )
             
@@ -820,7 +906,8 @@ class StoryboardClient(BaseClient):
         result = self.update_storyboard(
             storyboard_id=storyboard_id,
             project_id=project_id,
-            update_ai_params=update_ai_params
+            update_ai_params=update_ai_params,
+            project_type=project_type
         )
         
         # Get the storyboard_id from the result if we only had project_id
@@ -830,7 +917,8 @@ class StoryboardClient(BaseClient):
         # Now regenerate the storyboard
         return self.redo_storyboard(
             storyboard_id=storyboard_id,
-            include_history=include_history
+            include_history=include_history,
+            project_type=project_type
         )
         
     def wait_for_generation_complete(
@@ -883,6 +971,7 @@ class StoryboardClient(BaseClient):
         project_id: str, 
         polling_interval: int = 5, 
         timeout: int = 300, 
+        project_type: Optional[str] = None,
         **kwargs
     ) -> Dict:
         """
@@ -892,6 +981,7 @@ class StoryboardClient(BaseClient):
             project_id: ID of the project to create the storyboard for
             polling_interval: Time in seconds between status checks
             timeout: Maximum time to wait in seconds
+            project_type: Optional hint ('v1' or 'v2') to avoid an extra project lookup when enforcing legacy guards
             **kwargs: Additional parameters to pass to create_storyboard
             
         Returns:
@@ -902,7 +992,7 @@ class StoryboardClient(BaseClient):
             requests.exceptions.RequestException: If the API request fails
         """
         # Create the storyboard
-        result = self.create_storyboard(project_id=project_id, **kwargs)
+        result = self.create_storyboard(project_id=project_id, project_type=project_type, **kwargs)
         job_id = result.get("job_id")
         
         if not job_id:
@@ -920,7 +1010,7 @@ class StoryboardClient(BaseClient):
         if not storyboard_id:
             raise ValueError("No storyboard_id found in create_storyboard response")
             
-        return self.get_storyboard(storyboard_id=storyboard_id, include_results=True)
+        return self.get_storyboard(storyboard_id=storyboard_id, include_results=True, project_type=project_type)
         
     def create_simple_edit(
         self, 
@@ -988,7 +1078,8 @@ class StoryboardClient(BaseClient):
         include_history: bool = True,
         wait_for_completion: bool = False,
         polling_interval: int = 5, 
-        timeout: int = 300
+        timeout: int = 300,
+        project_type: Optional[str] = None
     ) -> Dict:
         """
         Send a chat prompt to guide storyboard regeneration (convenience method).
@@ -1001,6 +1092,7 @@ class StoryboardClient(BaseClient):
             wait_for_completion: Whether to wait for the generation job to complete
             polling_interval: Seconds between status checks if waiting for completion
             timeout: Maximum seconds to wait if waiting for completion
+            project_type: Optional hint ('v1' or 'v2') to avoid an extra project lookup when enforcing legacy guards
             
         Returns:
             Dictionary with job information, or completed job if wait_for_completion=True
@@ -1046,7 +1138,8 @@ class StoryboardClient(BaseClient):
             storyboard_id=storyboard_id,
             project_id=project_id,
             regeneration_prompt=prompt,
-            include_history=include_history
+            include_history=include_history,
+            project_type=project_type
         )
         
         # If we should wait for completion, poll the job status
@@ -1061,7 +1154,7 @@ class StoryboardClient(BaseClient):
             # Fetch the updated storyboard
             storyboard_id = result.get("storyboard_id")
             if storyboard_id:
-                return self.get_storyboard(storyboard_id=storyboard_id, include_results=True)
+                return self.get_storyboard(storyboard_id=storyboard_id, include_results=True, project_type=project_type)
             
         return result
     

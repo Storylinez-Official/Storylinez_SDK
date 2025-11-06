@@ -24,7 +24,9 @@ def main():
     print("\n=== Creating Project Folder ===")
     folder_result = client.project.create_folder(
         name="Marketing Videos",
-        description="Folder for all marketing campaign videos"
+        description="Folder for all marketing campaign videos",
+        label_icon="campaign",
+        label_color="#1f3b73",
     )
     folder_id = folder_result.get("folder_id")
     print(f"Created folder with ID: {folder_id}")
@@ -261,6 +263,23 @@ def main():
         
     except Exception as e:
         print(f"Error with bulk voiceover operations: {str(e)}")
+
+    # Example 13: Create a v2 project shell for sequence builder workflows
+    print("\n=== Creating V2 Project Shell ===")
+    try:
+        v2_project = client.project.create_project(
+            name="Q1 Product Launch V2",
+            orientation="landscape",
+            purpose="Sequence builder campaign ready for v2 APIs",
+            project_type="v2",
+        )
+        print(
+            "Created v2 project "
+            f"{v2_project.get('project', {}).get('project_id')}"
+            " (media attachments via v2_* clients)"
+        )
+    except Exception as e:
+        print(f"Error creating v2 project: {str(e)}")
 
 if __name__ == "__main__":
     main()

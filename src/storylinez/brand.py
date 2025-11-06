@@ -1,7 +1,6 @@
 import os
-import json
 import requests
-from typing import Dict, List, Optional, Union, Any, Tuple, cast
+from typing import Dict, List, Optional, Union, Any, Tuple
 import re
 import warnings
 from .base_client import BaseClient
@@ -23,10 +22,17 @@ class BrandClient(BaseClient):
             default_org_id: Default organization ID to use for all API calls (optional)
         """
         super().__init__(api_key, api_secret, base_url, default_org_id)
-        self.brand_url = f"{self.base_url}/brand"
+        self.brand_base_url = f"{self.base_url}/brands"
+        self.brand_url = self.brand_base_url  # Backward compatibility for older integrations
         
         # Define allowed logo image formats (matching the image standards in the SDK)
         self.allowed_logo_formats = ['jpg', 'jpeg', 'png']
+
+    def _brand_request(self, method: str, endpoint: str = "", **kwargs) -> Dict:
+        """Helper to make requests against the brands API namespace."""
+        endpoint = endpoint.strip("/")
+        url = self.brand_base_url if not endpoint else f"{self.brand_base_url}/{endpoint}"
+        return super()._make_request(method, url, **kwargs)
     
     @staticmethod
     def validate_rgb(color) -> List[int]:
@@ -128,7 +134,27 @@ class BrandClient(BaseClient):
             "filename": filename
         }
         
-        return self._make_request("GET", "logo-upload-url", params=params)
+        return self._brand_request("GET", "logo-upload-url", params=params)
+
+    def download_logo_from_url(self, logo_url: str, org_id: Optional[str] = None) -> Dict:
+        """Download a remote logo and stage it for brand usage via upload_id."""
+        org_id = org_id or self.default_org_id
+        if not org_id:
+            raise ValueError("Organization ID is required. Either provide org_id parameter or set a default_org_id when initializing the client.")
+
+        if not logo_url or not isinstance(logo_url, str):
+            raise ValueError("logo_url must be a non-empty string")
+
+        normalized_url = logo_url.strip()
+        if not normalized_url.startswith(("http://", "https://")):
+            raise ValueError("logo_url must begin with http:// or https://")
+
+        payload = {
+            "org_id": org_id,
+            "logo_url": normalized_url
+        }
+
+        return self._brand_request("POST", "logo-from-url", json_data=payload)
     
     def upload_logo(
         self, 
@@ -177,24 +203,30 @@ class BrandClient(BaseClient):
         
         # Generate upload link
         upload_info = self.get_logo_upload_url(filename=filename, org_id=org_id)
-        
-        # Upload the file to the pre-signed URL
         upload_link = upload_info.get("upload_link")
-        logo_key = upload_info.get("s3_key")
         upload_id = upload_info.get("upload_id")
-        
-        if not upload_link:
-            raise ValueError("Failed to generate upload URL")
-        
-        # Use requests to upload the file
+        logo_key = upload_info.get("key") or upload_info.get("s3_key")
+
+        if not upload_link or not upload_id:
+            raise ValueError("Failed to obtain upload credentials for logo")
+
+        # Upload the file to the returned URL/post payload
         try:
             with open(file_path, 'rb') as file_data:
-                upload_response = requests.put(upload_link, data=file_data)
-                
-                if upload_response.status_code >= 400:
-                    raise Exception(f"Logo upload failed with status {upload_response.status_code}: {upload_response.text}")
-        except Exception as e:
-            raise Exception(f"Error uploading logo: {str(e)}")
+                if isinstance(upload_link, dict):
+                    upload_url = upload_link.get("url")
+                    fields = upload_link.get("fields", {})
+                    if not upload_url:
+                        raise ValueError("Upload link payload is missing the destination URL")
+                    files = {"file": (filename, file_data)}
+                    upload_response = requests.post(upload_url, data=fields, files=files)
+                else:
+                    upload_response = requests.put(upload_link, data=file_data)
+
+            if upload_response.status_code >= 400:
+                raise Exception(f"Logo upload failed with status {upload_response.status_code}: {upload_response.text}")
+        except Exception as exc:
+            raise Exception(f"Error uploading logo: {exc}") from exc
         
         # Return early if not creating brand
         if not create_brand:
@@ -211,6 +243,7 @@ class BrandClient(BaseClient):
         # Create brand with the uploaded logo
         return self.create(
             name=name,
+            upload_id=upload_id,
             logo_key=logo_key,
             is_default=is_default,
             is_public=is_public,
@@ -222,7 +255,8 @@ class BrandClient(BaseClient):
         self, 
         name: str,
         org_id: Optional[str] = None,
-        logo_key: Optional[str] = None,
+    logo_key: Optional[str] = None,
+    upload_id: Optional[str] = None,
         is_default: bool = False,
         is_public: bool = False,
         # Outro settings
@@ -292,7 +326,8 @@ class BrandClient(BaseClient):
         Args:
             name: Brand name
             org_id: Organization ID (uses default if not provided)
-            logo_key: S3 key of the uploaded logo (optional)
+            logo_key: S3 key of the uploaded logo (optional when upload_id is not supplied)
+            upload_id: Secure upload identifier returned by the logo upload workflow
             is_default: Whether this brand should be the default
             is_public: Whether this brand should be publicly accessible
             
@@ -389,6 +424,9 @@ class BrandClient(BaseClient):
             "is_public": is_public
         }
         
+        if upload_id:
+            data["upload_id"] = upload_id
+
         if logo_key:
             data["logo_key"] = logo_key
             
@@ -481,7 +519,7 @@ class BrandClient(BaseClient):
         # Add any additional kwargs for backward compatibility
         data.update(kwargs)
         
-        return self._make_request("POST", "create", json_data=data)
+        return self._brand_request("POST", "create", json_data=data)
     
     def get_all(
         self, 
@@ -522,7 +560,7 @@ class BrandClient(BaseClient):
             "include_urls": str(include_urls).lower()
         }
         
-        return self._make_request("GET", "get_all", params=params)
+        return self._brand_request("GET", "get_all", params=params)
     
     def get(self, brand_id: Optional[str] = None, org_id: Optional[str] = None) -> Dict:
         """
@@ -548,7 +586,7 @@ class BrandClient(BaseClient):
         if org_id:
             params["org_id"] = org_id
         
-        return self._make_request("GET", "get", params=params)
+        return self._brand_request("GET", "get", params=params)
     
     def get_default(self, org_id: Optional[str] = None) -> Dict:
         """
@@ -568,7 +606,7 @@ class BrandClient(BaseClient):
             raise ValueError("Organization ID is required. Either provide org_id parameter or set a default_org_id when initializing the client.")
             
         params = {"org_id": org_id}
-        return self._make_request("GET", "get_default", params=params)
+        return self._brand_request("GET", "get_default", params=params)
     
     def update(
         self, 
@@ -790,7 +828,7 @@ class BrandClient(BaseClient):
             raise ValueError("No update parameters provided.")
             
         params = {"brand_id": brand_id}
-        return self._make_request("PUT", "update", params=params, json_data=data)
+        return self._brand_request("PUT", "update", params=params, json_data=data)
     
     def delete(self, brand_id: str) -> Dict:
         """
@@ -809,8 +847,8 @@ class BrandClient(BaseClient):
             raise ValueError("brand_id is required.")
             
         params = {"brand_id": brand_id}
-        return self._make_request("DELETE", "delete", params=params)
-    
+        return self._brand_request("DELETE", "delete", params=params)
+        
     def set_default(self, brand_id: str) -> Dict:
         """
         Set a brand preset as the default.
@@ -828,8 +866,8 @@ class BrandClient(BaseClient):
             raise ValueError("brand_id is required.")
             
         params = {"brand_id": brand_id}
-        return self._make_request("PUT", "set_default", params=params)
-    
+        return self._brand_request("PUT", "set_default", params=params)
+        
     def add_logo(self, brand_id: str, upload_id: Optional[str] = None, logo_key: Optional[str] = None) -> Dict:
         """
         Add or update a logo for a brand.
@@ -858,7 +896,7 @@ class BrandClient(BaseClient):
             data["upload_id"] = upload_id
         
         params = {"brand_id": brand_id}
-        return self._make_request("PUT", "add_logo", params=params, json_data=data)
+        return self._brand_request("PUT", "add_logo", params=params, json_data=data)
     
     def duplicate(
         self, 
@@ -895,7 +933,7 @@ class BrandClient(BaseClient):
         if name:
             data["name"] = name
         
-        return self._make_request("POST", "duplicate", json_data=data)
+        return self._brand_request("POST", "duplicate", json_data=data)
     
     def get_fonts(self) -> Dict:
         """
@@ -904,15 +942,18 @@ class BrandClient(BaseClient):
         Returns:
             Dictionary with available fonts
         """
-        return self._make_request("GET", "fonts")
+        return self._brand_request("GET", "fonts")
     
     def get_public_brands(
         self, 
         exclude_org_id: Optional[str] = None, 
         page: int = 1, 
         limit: int = 20, 
-        include_logos: bool = False
-    ) -> Dict:
+        include_logos: bool = False,
+        sort_by: str = "updated_at",
+        sort_order: str = "asc",
+        smart_sort: bool = True
+        ) -> Dict:
         """
         Get publicly available brand presets.
         
@@ -921,6 +962,9 @@ class BrandClient(BaseClient):
             page: Page number to retrieve
             limit: Number of items per page
             include_logos: Whether to include logo URLs
+            sort_by: Sort field (updated_at, net_score, likes, dislikes)
+            sort_order: Sort direction (asc or desc)
+            smart_sort: Whether to apply interaction-aware smart sorting
             
         Returns:
             Dictionary with public brands and pagination info
@@ -934,16 +978,27 @@ class BrandClient(BaseClient):
         if limit < 1 or limit > 50:
             raise ValueError("Limit must be between 1 and 50")
         
+        sort_order_normalized = sort_order.lower()
+        if sort_order_normalized not in {"asc", "desc"}:
+            raise ValueError("sort_order must be 'asc' or 'desc'")
+        
+        allowed_sort_fields = {"updated_at", "net_score", "likes", "dislikes"}
+        if sort_by not in allowed_sort_fields:
+            raise ValueError(f"sort_by must be one of {', '.join(sorted(allowed_sort_fields))}")
+        
         params = {
             "page": page,
             "limit": limit,
-            "include_logos": str(include_logos).lower()
+            "include_logos": str(include_logos).lower(),
+            "sort_by": sort_by,
+            "sort_order": sort_order_normalized,
+            "smart_sort": str(smart_sort).lower()
         }
         
         if exclude_org_id:
             params["exclude_org_id"] = exclude_org_id
         
-        return self._make_request("GET", "public", params=params)
+        return self._brand_request("GET", "public", params=params)
     
     def search(
         self, 
@@ -988,8 +1043,8 @@ class BrandClient(BaseClient):
         if org_id:
             params["org_id"] = org_id
         
-        return self._make_request("GET", "search", params=params)
-    
+        return self._brand_request("GET", "search", params=params)
+        
     # Workflow Methods
     
     def create_or_update_brand_with_logo(
@@ -1020,51 +1075,32 @@ class BrandClient(BaseClient):
         org_id = org_id or self.default_org_id
         if not org_id:
             raise ValueError("Organization ID is required. Either provide org_id parameter or set a default_org_id when initializing the client.")
-            
-        # Validate logo file exists
-        if not os.path.isfile(logo_path):
-            raise FileNotFoundError(f"Logo file not found at '{logo_path}'")
-            
-        # Get file name and validate extension
-        filename = os.path.basename(logo_path)
-        ext = os.path.splitext(filename)[1].lower().lstrip('.')
-        if ext not in self.allowed_logo_formats:
-            raise ValueError(f"File extension '{ext}' not allowed for logos. Use one of: {', '.join(self.allowed_logo_formats)}")
-        
-        # 1. Upload logo first
-        upload_info = self.get_logo_upload_url(filename=filename, org_id=org_id)
-        upload_link = upload_info.get("upload_link")
-        logo_key = upload_info.get("s3_key")
-        upload_id = upload_info.get("upload_id")
-        
-        # 2. Upload the actual file
-        try:
-            with open(logo_path, 'rb') as file_data:
-                upload_response = requests.put(upload_link, data=file_data)
-                
-                if upload_response.status_code >= 400:
-                    raise Exception(f"Logo upload failed with status {upload_response.status_code}")
-        except Exception as e:
-            raise Exception(f"Error uploading logo: {str(e)}")
-        
-        # 3. Now either update existing brand or create a new one
+
         if brand_id:
-            # Update existing brand with logo
-            result = self.add_logo(brand_id=brand_id, upload_id=upload_id)
-            
-            # If there are other brand params to update, do that too
+            upload_result = self.upload_logo(
+                file_path=logo_path,
+                org_id=org_id,
+                create_brand=False
+            )
+
+            result = self.add_logo(brand_id=brand_id, upload_id=upload_result.get("upload_id"))
+
             if brand_params:
                 result = self.update(brand_id=brand_id, **brand_params)
-                
+
             return result
-        else:
-            # Create new brand with uploaded logo and other params
-            return self.create(
-                name=name,
-                org_id=org_id,
-                logo_key=logo_key,
-                **brand_params
-            )
+
+        resolved_name = name
+        if not resolved_name:
+            resolved_name = os.path.splitext(os.path.basename(logo_path))[0]
+
+        return self.upload_logo(
+            file_path=logo_path,
+            org_id=org_id,
+            name=resolved_name,
+            create_brand=True,
+            **brand_params
+        )
 
     def find_or_create_default_brand(
         self, 
@@ -1131,41 +1167,19 @@ class BrandClient(BaseClient):
             ValueError: If required parameters are missing or logo format is invalid
             FileNotFoundError: If the logo file doesn't exist
         """
-        # Validate brand_id
         if not brand_id:
             raise ValueError("brand_id is required.")
-            
-        # Get brand details to determine org_id
+
         brand = self.get(brand_id=brand_id)
         org_id = brand.get('org_id')
-        
-        # Validate logo file exists
-        if not os.path.isfile(logo_path):
-            raise FileNotFoundError(f"Logo file not found at '{logo_path}'")
-            
-        # Get file name and validate extension
-        filename = os.path.basename(logo_path)
-        ext = os.path.splitext(filename)[1].lower().lstrip('.')
-        if ext not in self.allowed_logo_formats:
-            raise ValueError(f"File extension '{ext}' not allowed for logos. Use one of: {', '.join(self.allowed_logo_formats)}")
-        
-        # 1. Get upload URL
-        upload_info = self.get_logo_upload_url(filename=filename, org_id=org_id)
-        upload_link = upload_info.get("upload_link")
-        upload_id = upload_info.get("upload_id")
-        
-        # 2. Upload the actual file
-        try:
-            with open(logo_path, 'rb') as file_data:
-                upload_response = requests.put(upload_link, data=file_data)
-                
-                if upload_response.status_code >= 400:
-                    raise Exception(f"Logo upload failed with status {upload_response.status_code}: {upload_response.text}")
-        except Exception as e:
-            raise Exception(f"Error uploading logo: {str(e)}")
-        
-        # 3. Update the brand using logo_upload_id
-        update_params = {"logo_upload_id": upload_id}
+
+        upload_result = self.upload_logo(
+            file_path=logo_path,
+            org_id=org_id,
+            create_brand=False
+        )
+
+        update_params = {"logo_upload_id": upload_result.get("upload_id")}
         update_params.update(brand_params)
         return self.update(brand_id=brand_id, **update_params)
     
@@ -1185,10 +1199,10 @@ class BrandClient(BaseClient):
             'brand_id': brand_id
         }
         
-        return self._make_request(
+        return self._brand_request(
             'POST',
-            f"{self.brand_url}/like",
-            data=payload,
+            'like',
+            json_data=payload,
             **kwargs
         )
     
@@ -1206,10 +1220,10 @@ class BrandClient(BaseClient):
             'brand_id': brand_id
         }
         
-        return self._make_request(
+        return self._brand_request(
             'POST',
-            f"{self.brand_url}/dislike",
-            data=payload,
+            'dislike',
+            json_data=payload,
             **kwargs
         )
     
@@ -1227,43 +1241,58 @@ class BrandClient(BaseClient):
             'brand_id': brand_id
         }
         
-        return self._make_request(
+        return self._brand_request(
             'POST',
-            f"{self.brand_url}/remove_interaction",
-            data=payload,
+            'remove_interaction',
+            json_data=payload,
             **kwargs
         )
     
     # Brand Comment Methods
     
-    def add_comment(self, brand_id: str, content: str, parent_comment_id: Optional[str] = None, **kwargs) -> Dict:
+    def add_comment(self, brand_id: str, text: Optional[str] = None, parent_comment_id: Optional[str] = None, **kwargs) -> Dict:
         """
         Add a comment to a brand.
         
         Args:
             brand_id: ID of the brand to comment on
-            content: The comment text content
+            text: The comment text content
             parent_comment_id: ID of parent comment if this is a reply (optional)
             
         Returns:
             Dictionary containing success status and comment_id
         """
+        if not brand_id:
+            raise ValueError("brand_id is required")
+
+        legacy_content = kwargs.pop("content", None)
+        comment_text = text if text is not None else legacy_content
+
+        if comment_text is None:
+            raise ValueError("Comment text is required")
+
+        comment_text = str(comment_text).strip()
+        if not comment_text:
+            raise ValueError("Comment text cannot be empty")
+        if len(comment_text) > 1000:
+            raise ValueError("Comment text cannot exceed 1000 characters")
+
         payload = {
             'brand_id': brand_id,
-            'content': content
+            'text': comment_text
         }
         
         if parent_comment_id:
             payload['parent_comment_id'] = parent_comment_id
         
-        return self._make_request(
+        return self._brand_request(
             'POST',
-            f"{self.brand_url}/comment",
-            data=payload,
+            'comment',
+            json_data=payload,
             **kwargs
         )
     
-    def get_comments(self, brand_id: str, page: int = 1, limit: int = 10, **kwargs) -> Dict:
+    def get_comments(self, brand_id: str, page: int = 1, limit: int = 10, parent_comment_id: Optional[str] = None, **kwargs) -> Dict:
         """
         Get comments for a specific brand.
         
@@ -1271,43 +1300,70 @@ class BrandClient(BaseClient):
             brand_id: ID of the brand to get comments for
             page: Page number for pagination (default: 1)
             limit: Number of comments per page (default: 10, max: 50)
+            parent_comment_id: Pass a comment ID to fetch replies or None for top-level comments
             
         Returns:
             Dictionary containing comments and pagination info
         """
+        if not brand_id:
+            raise ValueError("brand_id is required")
+
+        if page < 1:
+            raise ValueError("page must be greater than or equal to 1")
+
+        if limit < 1:
+            raise ValueError("limit must be greater than or equal to 1")
+
         params = {
             'brand_id': brand_id,
             'page': page,
-            'limit': min(limit, 50)  # Enforce max limit
+            'limit': min(limit, 50)
         }
+
+        params['parent_comment_id'] = parent_comment_id if parent_comment_id is not None else "null"
         
-        return self._make_request(
+        return self._brand_request(
             'GET',
-            f"{self.brand_url}/comments",
+            'comments',
             params=params,
             **kwargs
         )
     
-    def update_comment(self, comment_id: str, content: str, **kwargs) -> Dict:
+    def update_comment(self, comment_id: str, text: Optional[str] = None, **kwargs) -> Dict:
         """
         Update an existing comment.
         
         Args:
             comment_id: ID of the comment to update
-            content: The new comment content
+            text: The new comment content
             
         Returns:
             Dictionary containing success status
         """
+        if not comment_id:
+            raise ValueError("comment_id is required")
+
+        legacy_content = kwargs.pop("content", None)
+        comment_text = text if text is not None else legacy_content
+
+        if comment_text is None:
+            raise ValueError("Comment text is required")
+
+        comment_text = str(comment_text).strip()
+        if not comment_text:
+            raise ValueError("Comment text cannot be empty")
+        if len(comment_text) > 1000:
+            raise ValueError("Comment text cannot exceed 1000 characters")
+
         payload = {
             'comment_id': comment_id,
-            'content': content
+            'text': comment_text
         }
         
-        return self._make_request(
+        return self._brand_request(
             'PUT',
-            f"{self.brand_url}/comment",
-            data=payload,
+            'comment',
+            json_data=payload,
             **kwargs
         )
     
@@ -1325,9 +1381,9 @@ class BrandClient(BaseClient):
             'comment_id': comment_id
         }
         
-        return self._make_request(
+        return self._brand_request(
             'DELETE',
-            f"{self.brand_url}/comment",
+            'comment',
             params=params,
             **kwargs
         )

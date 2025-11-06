@@ -23,16 +23,52 @@ class ProjectClient(BaseClient):
         """
         super().__init__(api_key, api_secret, base_url, default_org_id)
         self.project_url = f"{self.base_url}/projects"
+
+    @staticmethod
+    def _normalize_label_value(value: Optional[str]) -> Optional[str]:
+        """Trim label-style strings and collapse empty values to None."""
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped if stripped else None
+
+    @staticmethod
+    def _normalize_project_type_hint(project_type: Optional[str]) -> Optional[str]:
+        """Normalize optional project type hints to lowercase values."""
+        if project_type is None:
+            return None
+        normalized = project_type.strip().lower()
+        if normalized not in ["v1", "v2"]:
+            raise ValueError("project_type must be either 'v1' or 'v2'")
+        return normalized
+
+    @staticmethod
+    def _ensure_v1_only(project_type: Optional[str], feature_name: str) -> None:
+        """Raise when a legacy-only feature is invoked for a v2 project."""
+        if project_type and project_type.lower() == "v2":
+            raise ValueError(
+                f"{feature_name} is not supported for v2 projects via legacy endpoints."
+                " Use the v2 project/sequence APIs instead."
+            )
     
     # Project Folder Management
     
-    def create_folder(self, name: str, description: str = "", org_id: str = None) -> Dict:
+    def create_folder(
+        self,
+        name: str,
+        description: str = "",
+        org_id: str = None,
+        label_icon: Optional[str] = None,
+        label_color: Optional[str] = None,
+    ) -> Dict:
         """
         Create a new project folder.
         
         Args:
             name: Name of the folder
             description: Optional description of the folder
+            label_icon: Optional short icon identifier for labeling folders
+            label_color: Optional HEX color string for the folder label
             org_id: Organization ID (uses default if not provided)
             
         Returns:
@@ -61,6 +97,12 @@ class ProjectClient(BaseClient):
             "org_id": org_id,
             "description": description
         }
+
+        if label_icon is not None:
+            data["label_icon"] = self._normalize_label_value(label_icon)
+
+        if label_color is not None:
+            data["label_color"] = self._normalize_label_value(label_color)
         
         return self._make_request("POST", f"{self.project_url}/folders/create", json_data=data)
         
@@ -87,7 +129,14 @@ class ProjectClient(BaseClient):
         
         return self._make_request("GET", f"{self.project_url}/folders/get_all", params=params)
     
-    def update_folder(self, folder_id: str, name: str = None, description: str = None) -> Dict:
+    def update_folder(
+        self,
+        folder_id: str,
+        name: str = None,
+        description: str = None,
+        label_icon: Optional[str] = None,
+        label_color: Optional[str] = None,
+    ) -> Dict:
         """
         Update a project folder's details.
         
@@ -95,6 +144,8 @@ class ProjectClient(BaseClient):
             folder_id: ID of the folder to update
             name: New name for the folder (optional)
             description: New description for the folder (optional)
+            label_icon: Optional label icon identifier; pass empty string to clear
+            label_color: Optional label color HEX; pass empty string to clear
             
         Returns:
             Dictionary with the updated folder details
@@ -117,9 +168,15 @@ class ProjectClient(BaseClient):
             
         if description is not None:
             data["description"] = description.strip()
+
+        if label_icon is not None:
+            data["label_icon"] = self._normalize_label_value(label_icon)
+
+        if label_color is not None:
+            data["label_color"] = self._normalize_label_value(label_color)
             
         if not data:
-            raise ValueError("At least one field to update (name or description) must be provided")
+            raise ValueError("At least one field to update must be provided")
             
         params = {
             "folder_id": folder_id
@@ -258,11 +315,20 @@ class ProjectClient(BaseClient):
     
     # Project Management
     
-    def create_project(self, name: str, orientation: str, purpose: str = "",
-                     target_audience: str = "", folder_id: str = None,
-                     company_details_id: str = None, brand_id: str = None,
-                     associated_files: List[str] = None, settings: Dict = None,
-                     org_id: str = None) -> Dict:
+    def create_project(
+        self,
+        name: str,
+        orientation: str,
+        purpose: str = "",
+        target_audience: str = "",
+        folder_id: str = None,
+        company_details_id: str = None,
+        brand_id: str = None,
+        associated_files: List[str] = None,
+        settings: Dict = None,
+        org_id: str = None,
+        project_type: str = "v1",
+    ) -> Dict:
         """
         Create a new project.
         
@@ -274,9 +340,10 @@ class ProjectClient(BaseClient):
             folder_id: ID of the folder to place the project in
             company_details_id: Company details ID to use for the project
             brand_id: Brand ID to use for the project
-            associated_files: List of file IDs to associate with the project
-            settings: Dictionary of project settings
+            associated_files: List of file IDs to associate with the project (v1 only)
+            settings: Dictionary of project settings (v1 only)
             org_id: Organization ID (uses default if not provided)
+            project_type: Either "v1" (legacy media pipeline) or "v2" (sequence builder)
             
         Returns:
             Dictionary with the created project details
@@ -288,10 +355,14 @@ class ProjectClient(BaseClient):
             - The orientation cannot be changed after project creation
             - If company_details_id or brand_id are omitted, organization defaults will be used if available
             - Provide a clear purpose and target_audience to help with content generation
+            - Use project_type="v2" to create sequence-builder projects; media attachments must then use the v2 media APIs
         """
         org_id = org_id or self.default_org_id
         if not org_id:
             raise ValueError("Organization ID is required. Either provide org_id parameter or set a default_org_id when initializing the client.")
+        normalized_type = self._normalize_project_type_hint(project_type or "v1")
+        if normalized_type is None:
+            normalized_type = "v1"
         
         # Validate required fields
         if not name or not name.strip():
@@ -313,7 +384,8 @@ class ProjectClient(BaseClient):
             "org_id": org_id,
             "orientation": orientation,
             "purpose": purpose,
-            "target_audience": target_audience
+            "target_audience": target_audience,
+            "type": normalized_type,
         }
         
         if folder_id:
@@ -325,10 +397,16 @@ class ProjectClient(BaseClient):
         if brand_id:
             data["brand_id"] = brand_id
             
-        if associated_files:
+        if associated_files is not None:
+            self._ensure_v1_only(normalized_type, "associated file support")
+            if not isinstance(associated_files, list):
+                raise ValueError("associated_files must be provided as a list of file IDs")
             data["associated_files"] = associated_files
             
-        if settings:
+        if settings is not None:
+            self._ensure_v1_only(normalized_type, "custom project settings")
+            if not isinstance(settings, dict):
+                raise ValueError("settings must be a dictionary of project options")
             data["settings"] = settings
             
         return self._make_request("POST", f"{self.project_url}/create", json_data=data)
@@ -415,9 +493,17 @@ class ProjectClient(BaseClient):
         
         return self._make_request("GET", f"{self.project_url}/get_one", params=params)
     
-    def update_project(self, project_id: str, name: str = None, purpose: str = None,
-                      target_audience: str = None, company_details_id: str = None,
-                      brand_id: str = None, settings: Dict = None) -> Dict:
+    def update_project(
+        self,
+        project_id: str,
+        name: str = None,
+        purpose: str = None,
+        target_audience: str = None,
+        company_details_id: str = None,
+        brand_id: str = None,
+        settings: Dict = None,
+        project_type: Optional[str] = None,
+    ) -> Dict:
         """
         Update a project's details.
         
@@ -428,7 +514,8 @@ class ProjectClient(BaseClient):
             target_audience: New target audience description
             company_details_id: New company details ID
             brand_id: New brand ID
-            settings: New project settings dictionary
+            settings: New project settings dictionary (v1 only)
+            project_type: Optional project type hint ("v1" or "v2") to enforce legacy-only rules client-side
             
         Returns:
             Dictionary with the updated project details
@@ -445,7 +532,7 @@ class ProjectClient(BaseClient):
             raise ValueError("project_id is required")
             
         data = {}
-        allowed_fields = ["name", "purpose", "target_audience", "company_details_id", "brand_id", "settings"]
+        normalized_type = self._normalize_project_type_hint(project_type)
         
         if name is not None:
             if not name.strip():
@@ -465,6 +552,9 @@ class ProjectClient(BaseClient):
             data["brand_id"] = brand_id
             
         if settings is not None:
+            self._ensure_v1_only(normalized_type, "settings updates")
+            if not isinstance(settings, dict):
+                raise ValueError("settings must be provided as a dictionary")
             data["settings"] = settings
                 
         if not data:
@@ -533,19 +623,25 @@ class ProjectClient(BaseClient):
         
         return self._make_request("DELETE", f"{self.project_url}/delete", params=params)
     
-    def duplicate_project(self, project_id: str, name: str = None) -> Dict:
+    def duplicate_project(
+        self,
+        project_id: str,
+        name: str = None,
+        project_type: Optional[str] = None,
+    ) -> Dict:
         """
         Create a duplicate of an existing project.
         
         Args:
             project_id: ID of the project to duplicate
             name: Name for the duplicated project (defaults to original name + " (Copy)")
+            project_type: Optional project type hint ("v1" or "v2")
             
         Returns:
             Dictionary with the duplicated project details
             
         Raises:
-            ValueError: If project_id is missing
+            ValueError: If project_id is missing or duplication is disallowed for the project type
             
         Notes:
             - Duplication counts against your project limits
@@ -554,6 +650,8 @@ class ProjectClient(BaseClient):
         """
         if not project_id:
             raise ValueError("project_id is required")
+        normalized_type = self._normalize_project_type_hint(project_type)
+        self._ensure_v1_only(normalized_type, "project duplication")
             
         data = {
             "project_id": project_id
@@ -862,13 +960,19 @@ class ProjectClient(BaseClient):
     
     # Project Files Management
     
-    def add_associated_file(self, project_id: str, file_id: str) -> Dict:
+    def add_associated_file(
+        self,
+        project_id: str,
+        file_id: str,
+        project_type: Optional[str] = None,
+    ) -> Dict:
         """
         Add a file to a project.
         
         Args:
             project_id: ID of the project
             file_id: ID of the file to add
+            project_type: Optional project type hint ("v1" or "v2")
             
         Returns:
             Dictionary with the operation results
@@ -885,6 +989,8 @@ class ProjectClient(BaseClient):
             
         if not file_id:
             raise ValueError("file_id is required")
+        normalized_type = self._normalize_project_type_hint(project_type)
+        self._ensure_v1_only(normalized_type, "associated file management")
             
         data = {
             "file_id": file_id
@@ -896,13 +1002,19 @@ class ProjectClient(BaseClient):
         
         return self._make_request("POST", f"{self.project_url}/files/add", params=params, json_data=data)
     
-    def add_associated_files_bulk(self, project_id: str, file_ids: List[str]) -> Dict:
+    def add_associated_files_bulk(
+        self,
+        project_id: str,
+        file_ids: List[str],
+        project_type: Optional[str] = None,
+    ) -> Dict:
         """
         Add multiple files to a project in a single operation.
         
         Args:
             project_id: ID of the project
             file_ids: List of file IDs to add to the project
+            project_type: Optional project type hint ("v1" or "v2")
             
         Returns:
             Dictionary with the operation results including successful and failed additions
@@ -920,6 +1032,8 @@ class ProjectClient(BaseClient):
         
         if not file_ids or not isinstance(file_ids, list):
             raise ValueError("file_ids must be a non-empty list")
+        normalized_type = self._normalize_project_type_hint(project_type)
+        self._ensure_v1_only(normalized_type, "bulk associated file management")
         
         data = {
             "file_ids": file_ids
@@ -931,13 +1045,19 @@ class ProjectClient(BaseClient):
         
         return self._make_request("POST", f"{self.project_url}/files/add_bulk", params=params, json_data=data)
     
-    def remove_associated_file(self, project_id: str, file_id: str) -> Dict:
+    def remove_associated_file(
+        self,
+        project_id: str,
+        file_id: str,
+        project_type: Optional[str] = None,
+    ) -> Dict:
         """
         Remove a file from a project.
         
         Args:
             project_id: ID of the project
             file_id: ID of the file to remove
+            project_type: Optional project type hint ("v1" or "v2")
             
         Returns:
             Dictionary with the operation results
@@ -954,6 +1074,8 @@ class ProjectClient(BaseClient):
             
         if not file_id:
             raise ValueError("file_id is required")
+        normalized_type = self._normalize_project_type_hint(project_type)
+        self._ensure_v1_only(normalized_type, "associated file removal")
             
         params = {
             "project_id": project_id,
@@ -962,7 +1084,13 @@ class ProjectClient(BaseClient):
         
         return self._make_request("DELETE", f"{self.project_url}/files/remove", params=params)
     
-    def add_stock_file(self, project_id: str, stock_id: str, media_type: str) -> Dict:
+    def add_stock_file(
+        self,
+        project_id: str,
+        stock_id: str,
+        media_type: str,
+        project_type: Optional[str] = None,
+    ) -> Dict:
         """
         Add a stock media file to a project.
         
@@ -970,6 +1098,7 @@ class ProjectClient(BaseClient):
             project_id: ID of the project
             stock_id: ID of the stock media to add
             media_type: Type of media ('videos', 'audios', or 'images')
+            project_type: Optional project type hint ("v1" or "v2")
             
         Returns:
             Dictionary with the operation results
@@ -992,6 +1121,8 @@ class ProjectClient(BaseClient):
             
         if media_type not in ['videos', 'audios', 'images']:
             raise ValueError("media_type must be one of: 'videos', 'audios', 'images'")
+        normalized_type = self._normalize_project_type_hint(project_type)
+        self._ensure_v1_only(normalized_type, "stock media management")
             
         data = {
             "stock_id": stock_id,
@@ -1004,7 +1135,13 @@ class ProjectClient(BaseClient):
         
         return self._make_request("POST", f"{self.project_url}/stock-files/add", params=params, json_data=data)
     
-    def add_stock_files_bulk(self, project_id: str, stock_ids: List[str], media_type: str) -> Dict:
+    def add_stock_files_bulk(
+        self,
+        project_id: str,
+        stock_ids: List[str],
+        media_type: str,
+        project_type: Optional[str] = None,
+    ) -> Dict:
         """
         Add multiple stock media files to a project in a single operation.
         
@@ -1012,6 +1149,7 @@ class ProjectClient(BaseClient):
             project_id: ID of the project
             stock_ids: List of stock media IDs to add to the project
             media_type: Type of media ('videos', 'audios', or 'images')
+            project_type: Optional project type hint ("v1" or "v2")
             
         Returns:
             Dictionary with the operation results including successful and failed additions
@@ -1032,6 +1170,8 @@ class ProjectClient(BaseClient):
         
         if not media_type or media_type not in ['videos', 'audios', 'images']:
             raise ValueError("media_type must be one of: 'videos', 'audios', 'images'")
+        normalized_type = self._normalize_project_type_hint(project_type)
+        self._ensure_v1_only(normalized_type, "bulk stock media management")
         
         data = {
             "stock_ids": stock_ids,
@@ -1044,7 +1184,13 @@ class ProjectClient(BaseClient):
         
         return self._make_request("POST", f"{self.project_url}/stock-files/add_bulk", params=params, json_data=data)
     
-    def remove_stock_file(self, project_id: str, stock_id: str, media_type: str) -> Dict:
+    def remove_stock_file(
+        self,
+        project_id: str,
+        stock_id: str,
+        media_type: str,
+        project_type: Optional[str] = None,
+    ) -> Dict:
         """
         Remove a stock media file from a project.
         
@@ -1052,6 +1198,7 @@ class ProjectClient(BaseClient):
             project_id: ID of the project
             stock_id: ID of the stock media to remove
             media_type: Type of media ('videos', 'audios', or 'images')
+            project_type: Optional project type hint ("v1" or "v2")
             
         Returns:
             Dictionary with the operation results
@@ -1070,6 +1217,8 @@ class ProjectClient(BaseClient):
             
         if media_type not in ['videos', 'audios', 'images']:
             raise ValueError("media_type must be one of: 'videos', 'audios', 'images'")
+        normalized_type = self._normalize_project_type_hint(project_type)
+        self._ensure_v1_only(normalized_type, "stock media removal")
             
         params = {
             "project_id": project_id,
@@ -1079,9 +1228,14 @@ class ProjectClient(BaseClient):
         
         return self._make_request("DELETE", f"{self.project_url}/stock-files/remove", params=params)
     
-    def get_project_files(self, project_id: str, include_details: bool = False,
-                         generate_thumbnail_links: bool = False,
-                         generate_streamable_links: bool = False) -> Dict:
+    def get_project_files(
+        self,
+        project_id: str,
+        include_details: bool = False,
+        generate_thumbnail_links: bool = False,
+        generate_streamable_links: bool = False,
+        project_type: Optional[str] = None,
+    ) -> Dict:
         """
         Get all files associated with a project.
         
@@ -1090,6 +1244,7 @@ class ProjectClient(BaseClient):
             include_details: Whether to include detailed file information
             generate_thumbnail_links: Whether to generate thumbnail URLs
             generate_streamable_links: Whether to generate streamable URLs
+            project_type: Optional project type hint ("v1" or "v2")
             
         Returns:
             Dictionary with associated files, stock files, and voiceover information
@@ -1099,6 +1254,8 @@ class ProjectClient(BaseClient):
         """
         if not project_id:
             raise ValueError("project_id is required")
+        normalized_type = self._normalize_project_type_hint(project_type)
+        self._ensure_v1_only(normalized_type, "legacy file listing")
             
         params = {
             "project_id": project_id,
@@ -1111,7 +1268,13 @@ class ProjectClient(BaseClient):
     
     # Project Voiceover Management
     
-    def add_voiceover(self, project_id: str, file_id: str, voice_name: str = "Custom Voiceover") -> Dict:
+    def add_voiceover(
+        self,
+        project_id: str,
+        file_id: str,
+        voice_name: str = "Custom Voiceover",
+        project_type: Optional[str] = None,
+    ) -> Dict:
         """
         Add a voiceover file to a project.
         
@@ -1119,6 +1282,7 @@ class ProjectClient(BaseClient):
             project_id: ID of the project
             file_id: ID of the audio file to use as voiceover
             voice_name: Name/description of the voice
+            project_type: Optional project type hint ("v1" or "v2")
             
         Returns:
             Dictionary with the operation results
@@ -1136,6 +1300,8 @@ class ProjectClient(BaseClient):
             
         if not file_id:
             raise ValueError("file_id is required")
+        normalized_type = self._normalize_project_type_hint(project_type)
+        self._ensure_v1_only(normalized_type, "voiceover management")
             
         data = {
             "file_id": file_id,
@@ -1148,7 +1314,13 @@ class ProjectClient(BaseClient):
         
         return self._make_request("POST", f"{self.project_url}/voiceovers/add", params=params, json_data=data)
     
-    def add_voiceovers_bulk(self, project_id: str, voiceovers: List[Dict], selected_index: int = 0) -> Dict:
+    def add_voiceovers_bulk(
+        self,
+        project_id: str,
+        voiceovers: List[Dict],
+        selected_index: int = 0,
+        project_type: Optional[str] = None,
+    ) -> Dict:
         """
         Process multiple audio files as potential voiceovers and select one as active.
         
@@ -1156,6 +1328,7 @@ class ProjectClient(BaseClient):
             project_id: ID of the project
             voiceovers: List of voiceover objects, each containing file_id and optional voice_name
             selected_index: Index of the voiceover to select as active (0-based, defaults to the first valid voiceover)
+            project_type: Optional project type hint ("v1" or "v2")
             
         Returns:
             Dictionary with the operation results including successful and failed additions and the selected voiceover
@@ -1174,6 +1347,8 @@ class ProjectClient(BaseClient):
         
         if not voiceovers or not isinstance(voiceovers, list):
             raise ValueError("voiceovers must be a non-empty list")
+        normalized_type = self._normalize_project_type_hint(project_type)
+        self._ensure_v1_only(normalized_type, "bulk voiceover management")
     
         # Validate all voiceover entries have file_id
         for i, voiceover in enumerate(voiceovers):
@@ -1193,7 +1368,7 @@ class ProjectClient(BaseClient):
         
         return self._make_request("POST", f"{self.project_url}/voiceovers/add_bulk", params=params, json_data=data)
     
-    def remove_voiceover(self, project_id: str) -> Dict:
+    def remove_voiceover(self, project_id: str, project_type: Optional[str] = None) -> Dict:
         """
         Remove the voiceover from a project.
         
@@ -1212,6 +1387,8 @@ class ProjectClient(BaseClient):
         """
         if not project_id:
             raise ValueError("project_id is required")
+        normalized_type = self._normalize_project_type_hint(project_type)
+        self._ensure_v1_only(normalized_type, "voiceover removal")
             
         params = {
             "project_id": project_id
@@ -1219,13 +1396,19 @@ class ProjectClient(BaseClient):
         
         return self._make_request("DELETE", f"{self.project_url}/voiceovers/remove", params=params)
     
-    def get_voiceover(self, project_id: str, include_details: bool = False) -> Dict:
+    def get_voiceover(
+        self,
+        project_id: str,
+        include_details: bool = False,
+        project_type: Optional[str] = None,
+    ) -> Dict:
         """
         Get the voiceover information for a project.
         
         Args:
             project_id: ID of the project
             include_details: Whether to include detailed file information
+            project_type: Optional project type hint ("v1" or "v2")
             
         Returns:
             Dictionary with voiceover information
@@ -1235,6 +1418,8 @@ class ProjectClient(BaseClient):
         """
         if not project_id:
             raise ValueError("project_id is required")
+        normalized_type = self._normalize_project_type_hint(project_type)
+        self._ensure_v1_only(normalized_type, "voiceover retrieval")
             
         params = {
             "project_id": project_id,
@@ -1245,10 +1430,18 @@ class ProjectClient(BaseClient):
     
     # Convenience methods - workflows that combine multiple API calls
     
-    def create_project_with_files(self, name: str, orientation: str, files: List[str] = None,
-                                folder_name: str = None, purpose: str = "", 
-                                target_audience: str = "", settings: Dict = None,
-                                org_id: str = None) -> Dict:
+    def create_project_with_files(
+        self,
+        name: str,
+        orientation: str,
+        files: List[str] = None,
+        folder_name: str = None,
+        purpose: str = "",
+        target_audience: str = "",
+        settings: Dict = None,
+        org_id: str = None,
+        project_type: str = "v1",
+    ) -> Dict:
         """
         Creates a project and adds files to it in one operation. Optionally creates a new folder.
         
@@ -1259,8 +1452,9 @@ class ProjectClient(BaseClient):
             folder_name: If provided, creates a new folder with this name and adds the project to it
             purpose: Project purpose description
             target_audience: Target audience description
-            settings: Dictionary of project settings
+            settings: Dictionary of project settings (v1 only)
             org_id: Organization ID (uses default if not provided)
+            project_type: Either "v1" or "v2"; v2 projects must manage media via dedicated v2 APIs
             
         Returns:
             Dictionary with the created project details
@@ -1274,6 +1468,11 @@ class ProjectClient(BaseClient):
         org_id = org_id or self.default_org_id
         if not org_id:
             raise ValueError("Organization ID is required. Either provide org_id parameter or set a default_org_id when initializing the client.")
+        normalized_type = self._normalize_project_type_hint(project_type or "v1")
+        if normalized_type is None:
+            normalized_type = "v1"
+        if normalized_type == "v2" and files:
+            raise ValueError("files cannot be pre-attached when creating v2 projects. Use the v2 media APIs instead.")
         
         # Create a folder if needed
         folder_id = None
@@ -1304,7 +1503,8 @@ class ProjectClient(BaseClient):
             target_audience=target_audience,
             folder_id=folder_id,
             settings=settings,
-            org_id=org_id
+            org_id=org_id,
+            project_type=normalized_type,
         )
         
         project_id = project_result.get("project", {}).get("project_id")
@@ -1313,7 +1513,11 @@ class ProjectClient(BaseClient):
         if files and project_id:
             for file_id in files:
                 try:
-                    self.add_associated_file(project_id=project_id, file_id=file_id)
+                    self.add_associated_file(
+                        project_id=project_id,
+                        file_id=file_id,
+                        project_type=normalized_type,
+                    )
                 except Exception as e:
                     print(f"Warning: Could not add file {file_id} to project: {str(e)}")
         

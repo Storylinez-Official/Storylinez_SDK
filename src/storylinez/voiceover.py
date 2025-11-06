@@ -6,6 +6,7 @@ import re
 from typing import Dict, List, Optional, Union, Any, BinaryIO, Tuple
 from datetime import datetime
 from .base_client import BaseClient
+from .shared.validation import validate_media_extension
 
 class VoiceoverClient(BaseClient):
     """
@@ -28,8 +29,73 @@ class VoiceoverClient(BaseClient):
         self._voice_types_cache = None
         self._voice_types_timestamp = None
         self._cache_duration = 3600  # 1 hour cache duration
+        # Cache for resolving project types to avoid extra lookups
+        self._project_type_cache = {}
     
     # Enhanced Voiceover Operations
+    
+    @staticmethod
+    def _normalize_project_type_hint(project_type: Optional[str]) -> Optional[str]:
+        """Normalize an optional project_type hint provided by callers.
+
+        Returns 'v1' or 'v2' when the hint is explicit; otherwise returns None.
+        """
+        if project_type is None:
+            return None
+        if not isinstance(project_type, str):
+            return None
+        candidate = project_type.strip().lower()
+        if candidate in ("v1", "v2"):
+            return candidate
+        return None
+
+    def _get_project_type(self, project_id: str) -> str:
+        """Fetch and cache project type information for voiceover guard rails."""
+        cached = self._project_type_cache.get(project_id)
+        if cached:
+            return cached
+
+        response = self._make_request(
+            "GET",
+            f"{self.base_url}/projects/get_one",
+            params={"project_id": project_id}
+        )
+        project_type = (response.get("type") or "v1").lower()
+        self._project_type_cache[project_id] = project_type
+        return project_type
+
+    def _ensure_legacy_voiceover_supported(self, project_id: str, project_type_hint: Optional[str]) -> str:
+        """Raise when attempting to use legacy voiceover APIs for v2 projects.
+
+        project_type_hint can be provided by the caller to avoid an extra project lookup.
+        """
+        normalized_hint = self._normalize_project_type_hint(project_type_hint)
+        resolved_type = normalized_hint or self._get_project_type(project_id)
+        if resolved_type == "v2":
+            raise ValueError(
+                "Voiceovers are disabled for v2 sequence builder projects via legacy endpoints. Use the /v2/audio workflows instead."
+            )
+        return resolved_type
+
+    def _resolve_project_id_from_voiceover(self, voiceover_id: str) -> str:
+        """Resolve the project_id for a given voiceover to enforce legacy guards."""
+        params = {
+            "voiceover_id": voiceover_id,
+            "include_results": "false",
+            "include_storyboard": "false",
+            "generate_audio_link": "false"
+        }
+        response = self._make_request("GET", f"{self.voiceover_url}/get", params=params)
+        if isinstance(response, dict):
+            project_id = response.get("project_id")
+            if project_id:
+                return project_id
+            voiceover_payload = response.get("voiceover")
+            if isinstance(voiceover_payload, dict):
+                project_id = voiceover_payload.get("project_id")
+                if project_id:
+                    return project_id
+        raise ValueError("Could not determine project_id for the provided voiceover_id")
     
     def create_voiceover(self, 
                        project_id: str, 
@@ -52,6 +118,10 @@ class VoiceoverClient(BaseClient):
         # Validate project_id
         if not project_id:
             raise ValueError("project_id is required for creating a voiceover")
+        # Ensure legacy (v1) endpoints are not used for v2 projects.
+        # Allow callers to pass an optional project_type hint via kwargs to avoid an extra lookup.
+        project_type_hint = kwargs.get('project_type')
+        self._ensure_legacy_voiceover_supported(project_id, project_type_hint)
         
         if not isinstance(project_id, str):
             project_id = str(project_id)
@@ -59,19 +129,7 @@ class VoiceoverClient(BaseClient):
             
         # Validate voiceover_code if provided
         if voiceover_code:
-            validated_code = self._validate_voice_code(voiceover_code)
-            if validated_code:
-                # Use the validated/normalized code
-                voiceover_code = validated_code
-            else:
-                # Get available voices for a helpful error message
-                try:
-                    voices = self.get_voice_types()
-                    voice_examples = list(voices.keys())[:3]
-                    raise ValueError(f"Invalid voiceover_code: '{voiceover_code}'. Valid examples include: {voice_examples}")
-                except Exception:
-                    # Fallback if we can't fetch voice types
-                    raise ValueError(f"Invalid voiceover_code: '{voiceover_code}'")
+            voiceover_code = self._normalize_voice_code(voiceover_code)
             
         data = {"project_id": project_id}
         if voiceover_code:
@@ -169,20 +227,17 @@ class VoiceoverClient(BaseClient):
         
         # Validate voiceover_code if provided
         if voiceover_code:
-            validated_code = self._validate_voice_code(voiceover_code)
-            if validated_code:
-                # Use the validated/normalized code
-                voiceover_code = validated_code
-            else:
-                # Get available voices for a helpful error message
-                try:
-                    voices = self.get_voice_types()
-                    voice_examples = list(voices.keys())[:3]
-                    raise ValueError(f"Invalid voiceover_code: '{voiceover_code}'. Valid examples include: {voice_examples}")
-                except Exception:
-                    # Fallback if we can't fetch voice types
-                    raise ValueError(f"Invalid voiceover_code: '{voiceover_code}'")
+            voiceover_code = self._normalize_voice_code(voiceover_code)
             
+        project_type_hint = kwargs.get('project_type')
+        resolved_project_id = project_id
+        if project_id:
+            self._ensure_legacy_voiceover_supported(project_id, project_type_hint)
+        else:
+            resolved_project_id = self._resolve_project_id_from_voiceover(voiceover_id)
+            self._ensure_legacy_voiceover_supported(resolved_project_id, project_type_hint)
+            project_id = resolved_project_id
+
         data = {}
         
         if voiceover_id:
@@ -225,6 +280,15 @@ class VoiceoverClient(BaseClient):
             project_id = str(project_id)
             print(f"Warning: project_id was converted to string: {project_id}")
             
+        project_type_hint = kwargs.get('project_type')
+        resolved_project_id = project_id
+        if project_id:
+            self._ensure_legacy_voiceover_supported(project_id, project_type_hint)
+        else:
+            resolved_project_id = self._resolve_project_id_from_voiceover(voiceover_id)
+            self._ensure_legacy_voiceover_supported(resolved_project_id, project_type_hint)
+            project_id = resolved_project_id
+
         data = {}
         
         if voiceover_id:
@@ -364,19 +428,16 @@ class VoiceoverClient(BaseClient):
             voice_name = "Custom Voiceover"
             print(f"Warning: voice_name was reset to default: {voice_name}")
             
-        # Check file type
-        valid_audio_extensions = ['.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac']
-        file_ext = os.path.splitext(file_path)[1].lower()
-        
-        if file_ext not in valid_audio_extensions:
-            print(f"Warning: File extension '{file_ext}' may not be a supported audio format. " 
-                  f"Supported formats: {', '.join(valid_audio_extensions)}")
-        
+        filename = os.path.basename(file_path)
+        try:
+            validate_media_extension(filename, media_type='AUDIO')
+        except ValueError as exc:
+            raise ValueError(str(exc)) from exc
+
         # First, create an upload link
         from .storage import StorageClient
         storage_client = StorageClient(self.api_key, self.api_secret, self.base_url, self.default_org_id)
         
-        filename = os.path.basename(file_path)
         file_size = os.path.getsize(file_path)
         
         print(f"Preparing to upload {filename} ({self._format_size(file_size)})...")
@@ -737,39 +798,87 @@ class VoiceoverClient(BaseClient):
     
     # Helper methods
     
-    def _validate_voice_code(self, voiceover_code: str) -> Optional[str]:
-        """Validate and normalize a voiceover code"""
-        if not voiceover_code:
-            return None
-            
-        # Attempt to fetch available voices
+    def _normalize_voice_code(self, voiceover_code: str) -> str:
+        """Validate and normalize a voiceover code to the canonical provider ID."""
+        if voiceover_code is None:
+            raise ValueError("voiceover_code cannot be None")
+
+        if not isinstance(voiceover_code, str):
+            raise ValueError("voiceover_code must be a string")
+
+        raw_code = voiceover_code.strip()
+        if not raw_code:
+            raise ValueError("voiceover_code must be a non-empty string")
+
+        voice_types: Dict[str, Any] = {}
+        fetch_error: Optional[Exception] = None
+
         try:
-            voices = self.get_voice_types().get('voice_types', {})
-            
-            # Check if it's a direct match for a voice name
-            if voiceover_code in voices:
-                # Return the voice ID if we have one
-                voice_data = voices[voiceover_code]
-                if 'id' in voice_data:
-                    return voice_data['id']
-                return voiceover_code
-                
-            # Check if it matches a voice ID
-            for voice_name, voice_data in voices.items():
-                if voice_data.get('id') == voiceover_code:
-                    return voiceover_code
-                    
-            # No match found
-            return None
-            
-        except Exception as e:
-            # If we can't fetch voice types, just do basic validation
-            # Common formats: en-US-Neural2-F, en-GB-Standard-A
-            pattern = r'^[a-z]{2}-[A-Z]{2}-(Neural|Standard|Wavenet|Polyglot)\d?-[A-Z]$'
-            if re.match(pattern, voiceover_code):
-                return voiceover_code
-            
-            return None
+            response = self.get_voice_types()
+            if isinstance(response, dict):
+                voice_types = response.get('voice_types', {}) or {}
+        except Exception as exc:  # pragma: no cover - network failures
+            fetch_error = exc
+
+        if voice_types:
+            normalized_lower = raw_code.lower()
+
+            # Direct match on documented voice name keys
+            if raw_code in voice_types:
+                voice_entry = voice_types[raw_code]
+                if isinstance(voice_entry, dict):
+                    return voice_entry.get('id') or voice_entry.get('voice_id') or raw_code
+                return raw_code
+
+            # Case-insensitive match on voice names
+            for voice_name, voice_entry in voice_types.items():
+                if isinstance(voice_name, str) and voice_name.lower() == normalized_lower:
+                    if isinstance(voice_entry, dict):
+                        return voice_entry.get('id') or voice_entry.get('voice_id') or voice_name
+                    return voice_name
+
+            # Check aliases, IDs, and alternate codes within metadata
+            for voice_name, voice_entry in voice_types.items():
+                if not isinstance(voice_entry, dict):
+                    continue
+
+                candidates: List[str] = []
+
+                for key in ('id', 'voice_id', 'code', 'voice_code', 'voiceId', 'voiceCode'):
+                    value = voice_entry.get(key)
+                    if isinstance(value, str) and value:
+                        candidates.append(value)
+
+                for key in ('aliases', 'codes', 'voice_aliases', 'voice_codes', 'legacy_codes'):
+                    values = voice_entry.get(key)
+                    if isinstance(values, (list, tuple, set)):
+                        candidates.extend([str(item) for item in values if isinstance(item, str) and item])
+
+                for candidate in candidates:
+                    if candidate == raw_code or candidate.lower() == normalized_lower:
+                        return voice_entry.get('id') or voice_entry.get('voice_id') or candidate
+
+            # Provide helpful context when voices were fetched but no match found
+            examples = [name for name in voice_types.keys() if isinstance(name, str)][:5]
+            hint = (
+                "Invalid voiceover_code '{code}'. Call get_voice_types() for the full listing"
+                f". Example voices: {examples}"
+            )
+            raise ValueError(hint.format(code=raw_code))
+
+        # If we could not fetch voice types, fall back to pattern validation
+        pattern = r'^[a-z]{2}-[A-Z]{2}-(Neural|Standard|Wavenet|Polyglot)\d?-[A-Z]$'
+        if re.match(pattern, raw_code):
+            return raw_code
+
+        if fetch_error is not None:
+            raise ValueError(
+                f"Unable to validate voiceover_code '{raw_code}': {fetch_error}"
+            ) from fetch_error
+
+        raise ValueError(
+            f"Invalid voiceover_code '{raw_code}'. Call get_voice_types() to inspect available voices."
+        )
     
     def _ensure_bool(self, value: Any, param_name: str) -> bool:
         """Convert various inputs to boolean and warn if needed"""

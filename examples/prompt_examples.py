@@ -26,17 +26,27 @@ def main():
         text_prompt_result = client.prompt.create_text_prompt(
             project_id="project_123abc",
             main_prompt="Create a promotional video for our new eco-friendly product line",
-            document_context="The product uses recycled materials and reduces carbon footprint by 30%.",
-            temperature=0.7,
+            document_context=[
+                "The product uses recycled materials and reduces carbon footprint by 30%.",
+                "Highlight three customer testimonials about sustainability.",
+            ],
+            temperature=0.65,
             total_length=30,
             iterations=3,
             web_search=True,
-            deepthink=True
+            deepthink=True,
+            engine="bolt",
+            model="auto",
+            eco=True,
+            skip_voiceover=False,
+            enable_content_analysis=True,
+            project_type="v1",
         )
         prompt_id = text_prompt_result.get("prompt_id")
         print(f"Created text prompt with ID: {prompt_id}")
         print(f"Project ID: {text_prompt_result.get('project_id')}")
         print(f"Temperature: {text_prompt_result.get('temperature')}")
+        print(f"Engine: {text_prompt_result.get('engine', 'bolt')}")
     except ValueError as e:
         # Catch SDK validation errors
         print(f"Validation error: {str(e)}")

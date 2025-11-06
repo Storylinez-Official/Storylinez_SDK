@@ -10,6 +10,8 @@ from .voiceover import VoiceoverClient
 from .sequence import SequenceClient
 from .render import RenderClient
 from .utils import UtilsClient
+from .v2_project import V2ProjectClient
+from .v2_context import V2ContextClient
 from .settings import SettingsClient
 from .user import UserClient
 from .tools import ToolsClient
@@ -51,6 +53,8 @@ class StorylinezClient:
         self._settings = None
         self._user = None
         self._tools = None
+        self._v2_project = None
+        self._v2_context = None
         # Future service clients will be added here
         
     @property
@@ -232,5 +236,29 @@ class StorylinezClient:
         if self._tools is None:
             self._tools = ToolsClient(self.api_key, self.api_secret, self.base_url, self.org_id)
         return self._tools
+    
+    @property
+    def v2_project(self) -> V2ProjectClient:
+        """
+        Get the V2 Project client for media catalogue endpoints.
+
+        Returns:
+            V2ProjectClient instance
+        """
+        if self._v2_project is None:
+            self._v2_project = V2ProjectClient(self.api_key, self.api_secret, self.base_url, self.org_id)
+        return self._v2_project
+
+    @property
+    def v2_context(self) -> V2ContextClient:
+        """
+        Get the V2 Context client for document and reference endpoints.
+
+        Returns:
+            V2ContextClient instance
+        """
+        if self._v2_context is None:
+            self._v2_context = V2ContextClient(self.api_key, self.api_secret, self.base_url, self.org_id)
+        return self._v2_context
     
     # Additional service properties will be added as they're implemented

@@ -33,6 +33,7 @@ def main():
         query="aerial view of mountains",
         num_results=3,
         orientation="landscape",
+        detailed=True,
         generate_thumbnail=True,
         generate_streamable=True
     )
@@ -46,7 +47,8 @@ def main():
         collections=["videos", "images"],
         generate_thumbnail=True,
         num_results_videos=3, 
-        num_results_images=3
+        num_results_images=3,
+        similarity_threshold=0.65,
     )
     
     # Print search results overview
@@ -67,7 +69,8 @@ def main():
             stock_id=video_id,
             media_type="videos",
             generate_thumbnail=True,
-            generate_streamable=True
+            generate_streamable=True,
+            generate_download=True,
         )
         
         # Show video metadata
@@ -104,7 +107,8 @@ def main():
             limit=5,
             sort_by="processed_at",
             sort_order="desc",
-            generate_thumbnail=True
+            generate_thumbnail=True,
+            smart_sort=False,
         )
         
         # Print audio list overview
