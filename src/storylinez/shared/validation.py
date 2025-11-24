@@ -15,20 +15,19 @@ DEFAULT_ENGINE = 'bolt'
 # These are Storylinez branded model aliases that map to underlying LLM models
 ALLOWED_MODELS = {
     'narrative': [
-        'storylinez-1-reasoning',         # Premium reasoning model (gpt-5)
-        'storylinez-1-reasoning-pro',     # Ultra premium reasoning model (gpt-5-pro)
+        'storylinez-1-reasoning',         # Premium reasoning model (OpenAI GPT-5.1)
         'storylinez-1-turbo',             # Fast and capable general model (gpt-4.1)
         'storylinez-1-muse',              # Creative writing focused (Claude Sonnet 4.5)
         'storylinez-1-muse-pro',          # Ultra creative writing focused (Claude Opus 4.1)
-        'storylinez-1-lumina',            # Balanced multimodal composer (Gemini 2.5 Pro)
+        'storylinez-1-lumina',            # Balanced multimodal composer (Gemini 3 Pro Preview)
         'storylinez-1-quasar',            # Edgy reasoning narrative (Grok 4)
         'storylinez-1-trident',           # Deep reflective storyteller (DeepSeek Chat v3.1)
         'auto'                            # Let server decide
     ],
     'analysis': [
-        'storylinez-1-reasoning',         # Deep inspection model
+        'storylinez-1-reasoning',         # Deep inspection model (OpenAI GPT-5.1)
         'storylinez-1-turbo',             # Fast analysis model
-        'storylinez-1-lumina',            # Balanced perception model
+        'storylinez-1-lumina',            # Balanced perception model (Gemini 3 Pro Preview)
         'auto'                            # Let server decide
     ]
 }
