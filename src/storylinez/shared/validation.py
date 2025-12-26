@@ -11,24 +11,41 @@ ALLOWED_ENGINES = [
 
 DEFAULT_ENGINE = 'bolt'
 
-# Model alias configurations - matches SERVER config.config alias lists
-# These are Storylinez branded model aliases that map to underlying LLM models
+# Model alias configurations - matches server-side public alias allowlists.
+# These are Storylinez branded model aliases that map to underlying LLM models.
 ALLOWED_MODELS = {
+    # V1 creative-gen endpoints (prompt/storyboard/sequence)
+    'narrative_v1': [
+        'storylinez-1-reasoning',
+        'storylinez-1-turbo',
+        'storylinez-1-muse',
+        'storylinez-1-quasar',
+        'storylinez-1-trident',
+        "storylinez-1-lumina",
+    ],
+    # V2 agent/sequence endpoints (session-based)
+    'narrative_v2': [
+        'storylinez-1-reasoning',
+        'storylinez-1-turbo',
+        'storylinez-1-muse',
+        'storylinez-1-quasar',
+        'storylinez-1-trident',
+        "storylinez-1-lumina",
+        'auto'
+    ],
+    # Backward-compat convenience: treat legacy 'narrative' as union.
     'narrative': [
-        'storylinez-1-reasoning',         # Premium reasoning model (OpenAI GPT-5.1)
-        'storylinez-1-turbo',             # Fast and capable general model (gpt-4.1)
-        'storylinez-1-muse',              # Creative writing focused (Claude Sonnet 4.5)
-        'storylinez-1-muse-pro',          # Ultra creative writing focused (Claude Opus 4.1)
-        'storylinez-1-lumina',            # Balanced multimodal composer (Gemini 3 Pro Preview)
-        'storylinez-1-quasar',            # Edgy reasoning narrative (Grok 4)
-        'storylinez-1-trident',           # Deep reflective storyteller (DeepSeek Chat v3.1)
-        'auto'                            # Let server decide
+        'storylinez-1-reasoning',
+        'storylinez-1-turbo',
+        'storylinez-1-muse',
+        'storylinez-1-quasar',
+        'storylinez-1-trident',
+        'auto'
     ],
     'analysis': [
-        'storylinez-1-reasoning',         # Deep inspection model (OpenAI GPT-5.1)
-        'storylinez-1-turbo',             # Fast analysis model
-        'storylinez-1-lumina',            # Balanced perception model (Gemini 3 Pro Preview)
-        'auto'                            # Let server decide
+        'storylinez-1-reasoning',
+        'storylinez-1-turbo',
+        'auto'
     ]
 }
 
@@ -108,27 +125,27 @@ def normalize_engine(engine: Optional[str]) -> str:
     return normalized
 
 
-def get_allowed_models(domain: str = 'narrative') -> List[str]:
+def get_allowed_models(domain: str = 'narrative_v1') -> List[str]:
     """
     Get list of allowed model aliases for a domain.
     
     Args:
-        domain: Domain name ('narrative' or 'search')
+        domain: Domain name ('narrative_v1', 'narrative_v2', 'narrative', or 'analysis')
         
     Returns:
         List of allowed model aliases for the domain
     """
-    domain_key = (domain or 'narrative').lower()
-    return ALLOWED_MODELS.get(domain_key, ALLOWED_MODELS['narrative']).copy()
+    domain_key = (domain or 'narrative_v1').lower()
+    return ALLOWED_MODELS.get(domain_key, ALLOWED_MODELS['narrative_v1']).copy()
 
 
-def is_valid_model(model: str, domain: str = 'narrative') -> bool:
+def is_valid_model(model: str, domain: str = 'narrative_v1') -> bool:
     """
     Check if model alias is valid for a domain.
     
     Args:
         model: Model alias to validate
-        domain: Domain name ('narrative' or 'search')
+        domain: Domain name ('narrative_v1', 'narrative_v2', 'narrative', or 'analysis')
         
     Returns:
         True if valid, False otherwise
@@ -136,18 +153,18 @@ def is_valid_model(model: str, domain: str = 'narrative') -> bool:
     if not isinstance(model, str):
         return False
     
-    domain_key = (domain or 'narrative').lower()
-    allowed = ALLOWED_MODELS.get(domain_key, ALLOWED_MODELS['narrative'])
+    domain_key = (domain or 'narrative_v1').lower()
+    allowed = ALLOWED_MODELS.get(domain_key, ALLOWED_MODELS['narrative_v1'])
     return model.strip().lower() in [m.lower() for m in allowed]
 
 
-def normalize_model(model: Optional[str], domain: str = 'narrative') -> Optional[str]:
+def normalize_model(model: Optional[str], domain: str = 'narrative_v1') -> Optional[str]:
     """
     Normalize model alias to lowercase format.
     
     Args:
         model: Optional model alias
-        domain: Domain name ('narrative' or 'search')
+        domain: Domain name ('narrative_v1', 'narrative_v2', 'narrative', or 'analysis')
         
     Returns:
         Normalized model alias or None
@@ -168,8 +185,8 @@ def normalize_model(model: Optional[str], domain: str = 'narrative') -> Optional
         return 'auto'
     
     # Find case-insensitive match
-    domain_key = (domain or 'narrative').lower()
-    allowed = ALLOWED_MODELS.get(domain_key, ALLOWED_MODELS['narrative'])
+    domain_key = (domain or 'narrative_v1').lower()
+    allowed = ALLOWED_MODELS.get(domain_key, ALLOWED_MODELS['narrative_v1'])
     for allowed_model in allowed:
         if allowed_model.lower() == normalized:
             return allowed_model.lower()
@@ -177,7 +194,7 @@ def normalize_model(model: Optional[str], domain: str = 'narrative') -> Optional
     raise ValueError(f"Invalid model '{model}' for domain '{domain}', allowed models: {allowed}")
 
 
-def validate_eco_model_conflict(eco: bool, model: Optional[str], domain: str = 'narrative') -> None:
+def validate_eco_model_conflict(eco: bool, model: Optional[str], domain: str = 'narrative_v1') -> None:
     """
     Validate that eco mode is not used with custom models.
     
@@ -190,7 +207,7 @@ def validate_eco_model_conflict(eco: bool, model: Optional[str], domain: str = '
         ValueError: If eco mode is enabled with a custom model
     """
     if eco and model and model != 'auto':
-        domain_key = (domain or 'narrative').lower()
+        domain_key = (domain or 'narrative_v1').lower()
         raise ValueError(
             f"eco mode cannot be used with custom models. "
             f"Either disable eco or remove model override. "

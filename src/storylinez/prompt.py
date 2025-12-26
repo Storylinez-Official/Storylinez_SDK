@@ -84,13 +84,13 @@ class PromptClient(BaseClient):
     def _normalize_narrative_model(self, model: Optional[str], eco_enabled: bool) -> Optional[str]:
         """Validate narrative domain model alias and eco compatibility."""
         try:
-            normalized = normalize_model(model, domain="narrative")
+            normalized = normalize_model(model, domain="narrative_v1")
         except ValueError as exc:
-            allowed = ", ".join(sorted(get_allowed_models("narrative")))
+            allowed = ", ".join(sorted(get_allowed_models("narrative_v1")))
             raise ValueError(f"model must be one of: {allowed}") from exc
         if normalized is None:
             return None
-        validate_eco_model_conflict(eco_enabled, normalized, domain="narrative")
+        validate_eco_model_conflict(eco_enabled, normalized, domain="narrative_v1")
         return normalized
 
     def _normalize_analysis_model(self, model: Optional[str], eco_enabled: bool) -> Optional[str]:

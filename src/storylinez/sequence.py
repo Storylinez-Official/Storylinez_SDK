@@ -203,12 +203,12 @@ class SequenceClient(BaseClient):
         # Normalize and validate model parameter
         if model_override is not None:
             try:
-                normalized_model = normalize_model(model_override, domain='narrative')
+                normalized_model = normalize_model(model_override, domain='narrative_v1')
                 # Validate eco + custom model conflict
-                validate_eco_model_conflict(eco, normalized_model)
+                validate_eco_model_conflict(eco, normalized_model, domain='narrative_v1')
                 data["model_override"] = normalized_model
             except ValueError as e:
-                raise ValueError(f"{e}. Hint: Allowed models are {get_allowed_models('narrative')}")
+                raise ValueError(f"{e}. Hint: Allowed models are {get_allowed_models('narrative_v1')}")
             
         # Add any additional kwargs for backward compatibility
         data.update(kwargs)
@@ -328,9 +328,9 @@ class SequenceClient(BaseClient):
 
         if model_override is not None:
             try:
-                normalized_model = normalize_model(model_override, domain='narrative')
+                normalized_model = normalize_model(model_override, domain='narrative_v1')
             except ValueError as e:
-                raise ValueError(f"{e}. Hint: Allowed models are {get_allowed_models('narrative')}")
+                raise ValueError(f"{e}. Hint: Allowed models are {get_allowed_models('narrative_v1')}")
 
             if sequence_data is None:
                 if sequence_id:
@@ -347,7 +347,7 @@ class SequenceClient(BaseClient):
                     )
 
             eco_enabled = bool(sequence_data.get('eco', False)) if sequence_data else False
-            validate_eco_model_conflict(eco_enabled, normalized_model)
+            validate_eco_model_conflict(eco_enabled, normalized_model, domain='narrative_v1')
             data["model_override"] = normalized_model
 
         if enable_content_analysis is not None:
@@ -535,9 +535,9 @@ class SequenceClient(BaseClient):
                 data["model_override"] = "auto"
             else:
                 try:
-                    normalized_model = normalize_model(model_override, domain='narrative')
+                    normalized_model = normalize_model(model_override, domain='narrative_v1')
                 except ValueError as e:
-                    allowed_models = get_allowed_models('narrative')
+                    allowed_models = get_allowed_models('narrative_v1')
                     raise ValueError(f"{e}. Hint: Allowed models are {allowed_models}")
 
                 if sequence_data is None:
@@ -560,7 +560,7 @@ class SequenceClient(BaseClient):
                     eco_enabled = bool(sequence_data.get('eco', False))
                 else:
                     eco_enabled = False
-                validate_eco_model_conflict(eco_enabled, normalized_model)
+                validate_eco_model_conflict(eco_enabled, normalized_model, domain='narrative_v1')
                 data["model_override"] = normalized_model
         if enable_content_analysis is not None:
             data["enable_content_analysis"] = bool(enable_content_analysis)

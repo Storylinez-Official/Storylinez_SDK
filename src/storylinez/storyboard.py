@@ -186,12 +186,12 @@ class StoryboardClient(BaseClient):
         effective_model = model_override or model
         if effective_model is not None:
             try:
-                normalized_model = normalize_model(effective_model, domain='narrative')
+                normalized_model = normalize_model(effective_model, domain='narrative_v1')
                 # Validate eco + custom model conflict
-                validate_eco_model_conflict(eco, normalized_model)
+                validate_eco_model_conflict(eco, normalized_model, domain='narrative_v1')
                 data["model_override"] = normalized_model
             except ValueError as e:
-                raise ValueError(f"{e}. Hint: Allowed models are {get_allowed_models('narrative')}")
+                raise ValueError(f"{e}. Hint: Allowed models are {get_allowed_models('narrative_v1')}")
             
         # Ensure documents is always a list of strings if provided
         if documents is not None:
