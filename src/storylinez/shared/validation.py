@@ -13,13 +13,13 @@ DEFAULT_ENGINE = 'bolt'
 
 # Model alias configurations - matches server-side public alias allowlists.
 # These are Storylinez branded model aliases that map to underlying LLM models.
+# Note: Claude models (storylinez-1-muse) have been removed; GPT-5.2 is now default.
 ALLOWED_MODELS = {
     # V1 creative-gen endpoints (prompt/storyboard/sequence)
     'narrative_v1': [
         'storylinez-1-reasoning',
         'storylinez-1-reasoning-high',
         'storylinez-1-turbo',
-        'storylinez-1-muse',
         'storylinez-1-quasar',
         'storylinez-1-trident',
         "storylinez-1-lumina",
@@ -39,7 +39,6 @@ ALLOWED_MODELS = {
         'storylinez-1-reasoning',
         'storylinez-1-reasoning-high',
         'storylinez-1-turbo',
-        'storylinez-1-muse',
         'storylinez-1-quasar',
         'storylinez-1-trident',
         'auto'
