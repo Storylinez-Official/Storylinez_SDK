@@ -17,6 +17,7 @@ ALLOWED_MODELS = {
     # V1 creative-gen endpoints (prompt/storyboard/sequence)
     'narrative_v1': [
         'storylinez-1-reasoning',
+        'storylinez-1-reasoning-high',
         'storylinez-1-turbo',
         'storylinez-1-muse',
         'storylinez-1-quasar',
@@ -26,6 +27,7 @@ ALLOWED_MODELS = {
     # V2 agent/sequence endpoints (session-based)
     'narrative_v2': [
         'storylinez-1-reasoning',
+        'storylinez-1-reasoning-high',
         'storylinez-1-turbo',
         'storylinez-1-quasar',
         'storylinez-1-trident',
@@ -35,6 +37,7 @@ ALLOWED_MODELS = {
     # Backward-compat convenience: treat legacy 'narrative' as union.
     'narrative': [
         'storylinez-1-reasoning',
+        'storylinez-1-reasoning-high',
         'storylinez-1-turbo',
         'storylinez-1-muse',
         'storylinez-1-quasar',
