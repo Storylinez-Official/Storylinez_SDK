@@ -27,7 +27,6 @@ ALLOWED_MODELS = {
     'narrative_v2': [
         'storylinez-1-reasoning',
         'storylinez-1-turbo',
-        'storylinez-1-muse',
         'storylinez-1-quasar',
         'storylinez-1-trident',
         "storylinez-1-lumina",
