@@ -115,7 +115,7 @@ def demo_file_upload(client):
     deepthink = input("Enable DeepThink for detailed analysis? (y/n, default: n): ").lower() == 'y'
     web_search = input("Enable web search during analysis? (y/n, default: n): ").lower() == 'y'
     advanced_detection = input("Enable advanced detection pipelines? (y/n, default: y): ").lower() != 'n'
-    model_alias = input("Analysis model alias (auto, storylinez-1-turbo, etc.): ") or "auto"
+    model_alias = input("Analysis model alias (auto, storylinez-1-reasoning, etc.): ") or "auto"
     
     print(f"\nUploading {os.path.basename(file_path)} to {folder_path}...")
     
@@ -172,7 +172,7 @@ def demo_upload_files_bulk(client):
     web_search = input("Enable web search during analysis? (y/n, default: n): ").lower() == 'y'
     eco = input("Enable Eco mode? (y/n, default: n): ").lower() == 'y'
     advanced_detection = input("Enable advanced detection pipelines? (y/n, default: y): ").lower() != 'n'
-    model_alias = input("Analysis model alias for all files (auto, storylinez-1-turbo, etc.): ").strip() or "auto"
+    model_alias = input("Analysis model alias for all files (auto, storylinez-1-reasoning, etc.): ").strip() or "auto"
     temperature_input = input("Set temperature (float, default: 0.7): ").strip()
     try:
         temperature = float(temperature_input) if temperature_input else 0.7

@@ -17,35 +17,40 @@ DEFAULT_ENGINE = 'bolt'
 ALLOWED_MODELS = {
     # V1 creative-gen endpoints (prompt/storyboard/sequence)
     'narrative_v1': [
+        'storylinez-1-reasoning-fast',
         'storylinez-1-reasoning',
         'storylinez-1-reasoning-high',
-        'storylinez-1-turbo',
         'storylinez-1-quasar',
         'storylinez-1-trident',
-        "storylinez-1-lumina",
+        'storylinez-1-lumina',
+        'storylinez-1-nebula',
+        'storylinez-1-nebula-fast',
     ],
     # V2 agent/sequence endpoints (session-based)
     'narrative_v2': [
+        'storylinez-1-reasoning-fast',
         'storylinez-1-reasoning',
         'storylinez-1-reasoning-high',
-        'storylinez-1-turbo',
         'storylinez-1-quasar',
         'storylinez-1-trident',
-        "storylinez-1-lumina",
+        'storylinez-1-lumina',
+        'storylinez-1-nebula',
+        'storylinez-1-nebula-fast',
         'auto'
     ],
     # Backward-compat convenience: treat legacy 'narrative' as union.
     'narrative': [
+        'storylinez-1-reasoning-fast',
         'storylinez-1-reasoning',
         'storylinez-1-reasoning-high',
-        'storylinez-1-turbo',
         'storylinez-1-quasar',
         'storylinez-1-trident',
         'auto'
     ],
     'analysis': [
+        'storylinez-1-reasoning-fast',
         'storylinez-1-reasoning',
-        'storylinez-1-turbo',
+        'storylinez-1-quasar',
         'auto'
     ]
 }
