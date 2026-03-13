@@ -174,7 +174,6 @@ class V2RenderClient(BaseClient):
             "FAILED",
             "ERROR",
             "CANCELLED",
-            "STOPPED",
             "REJECTED",
         ))}
         deadline = time.time() + timeout if timeout is not None else None
