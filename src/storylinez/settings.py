@@ -38,6 +38,31 @@ class SettingsClient(BaseClient):
             >>> temperature = settings.get('ai_params', {}).get('temperature', 0.7)
         """
         return self._make_request("GET", f"{self.settings_url}/get")
+
+    def get_email_preferences(self) -> Dict:
+        """
+        Retrieve email notification preferences for the current user.
+        """
+        return self._make_request("GET", f"{self.settings_url}/email-preferences")
+
+    def update_email_preferences(self, preferences: Dict[str, bool]) -> Dict:
+        """
+        Update email notification preferences for the current user.
+
+        Args:
+            preferences: Dictionary of category->enabled flags.
+        """
+        if not isinstance(preferences, dict):
+            raise ValueError("preferences must be provided as a dictionary")
+
+        normalized: Dict[str, bool] = {}
+        for key, value in preferences.items():
+            if not isinstance(key, str) or not key.strip():
+                raise ValueError("preference keys must be non-empty strings")
+            normalized[key] = bool(value)
+
+        payload = {"preferences": normalized}
+        return self._make_request("POST", f"{self.settings_url}/email-preferences", json_data=payload)
     
     def save_settings(
         self,

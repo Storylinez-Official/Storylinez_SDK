@@ -1105,6 +1105,35 @@ class StorageClient(BaseClient):
         }
         
         return self._make_request("PUT", f"{self.storage_url}/folder/rename", json_data=data)
+
+    def move_folder(self,
+                    folder_id: str,
+                    target_parent_path: str) -> Dict:
+        """
+        Move a folder under a new parent path.
+
+        Args:
+            folder_id: ID of the folder to move
+            target_parent_path: Destination parent path
+
+        Returns:
+            Dictionary with the moved folder details
+
+        Raises:
+            ValueError: If required parameters are missing
+        """
+        if not folder_id:
+            raise ValueError("Folder ID is required")
+
+        if not target_parent_path:
+            raise ValueError("target_parent_path is required")
+
+        data = {
+            "folder_id": folder_id,
+            "target_parent_path": self._validate_path(target_parent_path),
+        }
+
+        return self._make_request("PUT", f"{self.storage_url}/folder/move", json_data=data)
     
     def get_folder_tree(self, 
                     path: str = "/", 
@@ -1163,6 +1192,98 @@ class StorageClient(BaseClient):
         }
         
         return self._make_request("GET", f"{self.storage_url}/folder/list", params=params)
+
+    def browse_folders(self,
+                       org_id: str = None,
+                       path: str = "/",
+                       page: int = 1,
+                       page_size: int = 50,
+                       sort_by: str = "name",
+                       sort_direction: str = "asc") -> Dict:
+        """
+        Browse folders with pagination and sorting.
+
+        Args:
+            org_id: Organization ID (uses default if not provided)
+            path: Folder path to browse
+            page: Page number (minimum 1)
+            page_size: Number of results per page (1..200)
+            sort_by: Sort field (name, created_at, updated_at)
+            sort_direction: Sort direction (asc or desc)
+
+        Returns:
+            Paginated folder listing
+        """
+        org_id = self._require_org_id(org_id)
+        path = self._validate_path(path)
+
+        if page < 1:
+            raise ValueError("page must be >= 1")
+        if page_size < 1 or page_size > 200:
+            raise ValueError("page_size must be between 1 and 200")
+        if sort_by not in {"name", "created_at", "updated_at"}:
+            raise ValueError("sort_by must be one of: name, created_at, updated_at")
+        if sort_direction not in {"asc", "desc"}:
+            raise ValueError("sort_direction must be either 'asc' or 'desc'")
+
+        params = {
+            "org_id": org_id,
+            "path": path,
+            "page": page,
+            "page_size": page_size,
+            "sort_by": sort_by,
+            "sort_direction": sort_direction,
+        }
+
+        return self._make_request("GET", f"{self.storage_url}/folders/browse", params=params)
+
+    def list_unused_files(self,
+                          org_id: str = None,
+                          detailed: bool = False,
+                          generate_thumbnail: bool = True,
+                          generate_streamable: bool = True,
+                          generate_download: bool = False,
+                          page: int = 1,
+                          page_size: int = 50,
+                          sort_by: str = "upload_date",
+                          sort_direction: str = "desc",
+                          cursor_value: Optional[str] = None,
+                          cursor_id: Optional[str] = None,
+                          max_scan_batches: int = 8) -> Dict:
+        """
+        List files in an organization that are not linked to any project.
+        """
+        org_id = self._require_org_id(org_id)
+
+        if page < 1:
+            raise ValueError("page must be >= 1")
+        if page_size < 1 or page_size > 200:
+            raise ValueError("page_size must be between 1 and 200")
+
+        allowed_sort = {"upload_date", "filename", "size", "rating", "updated_at", "created_at"}
+        if sort_by not in allowed_sort:
+            raise ValueError(f"sort_by must be one of: {', '.join(sorted(allowed_sort))}")
+        if sort_direction not in {"asc", "desc"}:
+            raise ValueError("sort_direction must be either 'asc' or 'desc'")
+
+        params = {
+            "org_id": org_id,
+            "detailed": self._convert_bool_to_str(detailed),
+            "generate_thumbnail": self._convert_bool_to_str(generate_thumbnail),
+            "generate_streamable": self._convert_bool_to_str(generate_streamable),
+            "generate_download": self._convert_bool_to_str(generate_download),
+            "page": page,
+            "page_size": page_size,
+            "sort_by": sort_by,
+            "sort_direction": sort_direction,
+            "max_scan_batches": max_scan_batches,
+        }
+        if cursor_value is not None:
+            params["cursor_value"] = cursor_value
+        if cursor_id is not None:
+            params["cursor_id"] = cursor_id
+
+        return self._make_request("GET", f"{self.storage_url}/files/unused", params=params)
     
     def search_files_by_name(self, 
                           query: str, 
@@ -1335,6 +1456,56 @@ class StorageClient(BaseClient):
         }
         
         return self._make_request("GET", f"{self.storage_url}/file/analysis", params=params)
+
+    def rate_file(self, file_id: str, rating: Union[int, float]) -> Dict:
+        """Rate a file."""
+        if not file_id:
+            raise ValueError("File ID is required")
+        if rating is None:
+            raise ValueError("rating is required")
+
+        payload = {
+            "file_id": file_id,
+            "rating": rating,
+        }
+        return self._make_request("POST", f"{self.storage_url}/file/rate", json_data=payload)
+
+    def remove_file_rating(self, file_id: str) -> Dict:
+        """Remove the current user's rating from a file."""
+        if not file_id:
+            raise ValueError("File ID is required")
+
+        payload = {"file_id": file_id}
+        return self._make_request("POST", f"{self.storage_url}/file/remove_rating", json_data=payload)
+
+    def get_file_rating(self, file_id: str) -> Dict:
+        """Get rating metadata for a file."""
+        if not file_id:
+            raise ValueError("File ID is required")
+
+        params = {"file_id": file_id}
+        return self._make_request("GET", f"{self.storage_url}/file/get_rating", params=params)
+
+    def get_reference_video(self,
+                            file_id: str,
+                            detailed: bool = True,
+                            generate_thumbnail: bool = True,
+                            generate_streamable: bool = True,
+                            generate_download: bool = False) -> Dict:
+        """
+        Fetch a reference video with optional generated links.
+        """
+        if not file_id:
+            raise ValueError("file_id is required")
+
+        params = {
+            "file_id": file_id,
+            "detailed": self._convert_bool_to_str(detailed),
+            "generate_thumbnail": self._convert_bool_to_str(generate_thumbnail),
+            "generate_streamable": self._convert_bool_to_str(generate_streamable),
+            "generate_download": self._convert_bool_to_str(generate_download),
+        }
+        return self._make_request("GET", f"{self.storage_url}/reference/get", params=params)
     
     def delete_file(self, file_id: str) -> Dict:
         """
@@ -1540,8 +1711,9 @@ class StorageClient(BaseClient):
         for key, value in kwargs.items():
             if key not in data:
                 data[key] = value
-        
-        return self._make_request("POST", f"{self.storage_url}/file/reprocess?file_id={file_id}", json_data=data)
+
+        params = {"file_id": file_id}
+        return self._make_request("POST", f"{self.storage_url}/file/reprocess", params=params, json_data=data)
     
     def get_files_by_ids(self, 
                        file_ids: List[str], 
@@ -1612,6 +1784,74 @@ class StorageClient(BaseClient):
         }
         
         return self._make_request("GET", f"{self.storage_url}/storage/usage", params=params)
+
+    def import_youtube_download(self,
+                                org_id: str,
+                                s3_key: str,
+                                title: str,
+                                original_url: str,
+                                folder_path: str = "/",
+                                analyze: bool = True,
+                                context: str = "",
+                                tags: Optional[List[str]] = None,
+                                analyze_audio: bool = True,
+                                advanced_detection: bool = True,
+                                auto_company_details: bool = True,
+                                company_details_id: str = "",
+                                company_details: str = "",
+                                deepthink: bool = False,
+                                overdrive: bool = False,
+                                web_search: bool = False,
+                                eco: bool = False,
+                                temperature: float = 0.7,
+                                model: Optional[str] = None,
+                                trim_enabled: Optional[bool] = None,
+                                trim_start_seconds: Optional[float] = None,
+                                trim_end_seconds: Optional[float] = None) -> Dict:
+        """
+        Import a completed YouTube download into organization storage.
+        """
+        org_id = self._require_org_id(org_id)
+
+        if not s3_key:
+            raise ValueError("s3_key is required")
+        if not title or not title.strip():
+            raise ValueError("title is required")
+        if not original_url or not original_url.strip():
+            raise ValueError("original_url is required")
+
+        folder_path = self._validate_path(folder_path)
+
+        payload: Dict[str, Any] = {
+            "org_id": org_id,
+            "s3_key": s3_key,
+            "title": title.strip(),
+            "original_url": original_url.strip(),
+            "folder_path": folder_path,
+            "analyze": bool(analyze),
+            "context": context or "",
+            "tags": tags or [],
+            "analyze_audio": bool(analyze_audio),
+            "advanced_detection": bool(advanced_detection),
+            "auto_company_details": bool(auto_company_details),
+            "company_details_id": company_details_id or "",
+            "company_details": company_details or "",
+            "deepthink": bool(deepthink),
+            "overdrive": bool(overdrive),
+            "web_search": bool(web_search),
+            "eco": bool(eco),
+            "temperature": float(temperature),
+        }
+        if model is not None:
+            payload["model"] = model
+        if trim_enabled is not None:
+            payload["trim_enabled"] = bool(trim_enabled)
+        if trim_start_seconds is not None:
+            payload["trim_start_seconds"] = float(trim_start_seconds)
+        if trim_end_seconds is not None:
+            payload["trim_end_seconds"] = float(trim_end_seconds)
+
+        return self._make_request("POST", f"{self.storage_url}/youtube-import", json_data=payload)
 
     # Advanced helper methods and workflows
 

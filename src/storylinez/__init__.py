@@ -20,6 +20,12 @@ from .v2_effects import V2EffectsClient
 from .v2_schema import V2SchemaClient
 from .v2_sequence import V2SequenceClient
 from .v2_render import V2RenderClient
+from .v2_share import V2ShareClient
+from .data_collection import DataCollectionClient
+from .pipeline_jobs import PipelineJobsClient
+from .voice_library import VoiceLibraryClient
+from .youtube_downloads import YouTubeDownloadsClient
+from .trending_ads import TrendingAdsClient
 
 __all__ = [
     'StorylinezClient', 
@@ -43,5 +49,11 @@ __all__ = [
     'V2EffectsClient',
     'V2SchemaClient',
     'V2SequenceClient',
-    'V2RenderClient'
+    'V2RenderClient',
+    'V2ShareClient',
+    'DataCollectionClient',
+    'PipelineJobsClient',
+    'VoiceLibraryClient',
+    'YouTubeDownloadsClient',
+    'TrendingAdsClient'
 ]

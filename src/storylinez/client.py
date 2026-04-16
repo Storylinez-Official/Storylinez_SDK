@@ -12,6 +12,16 @@ from .render import RenderClient
 from .utils import UtilsClient
 from .v2_project import V2ProjectClient
 from .v2_context import V2ContextClient
+from .v2_effects import V2EffectsClient
+from .v2_schema import V2SchemaClient
+from .v2_sequence import V2SequenceClient
+from .v2_render import V2RenderClient
+from .v2_share import V2ShareClient
+from .data_collection import DataCollectionClient
+from .pipeline_jobs import PipelineJobsClient
+from .voice_library import VoiceLibraryClient
+from .youtube_downloads import YouTubeDownloadsClient
+from .trending_ads import TrendingAdsClient
 from .settings import SettingsClient
 from .user import UserClient
 from .tools import ToolsClient
@@ -55,6 +65,16 @@ class StorylinezClient:
         self._tools = None
         self._v2_project = None
         self._v2_context = None
+        self._v2_effects = None
+        self._v2_schema = None
+        self._v2_sequence = None
+        self._v2_render = None
+        self._v2_share = None
+        self._data_collection = None
+        self._pipeline_jobs = None
+        self._voice_library = None
+        self._youtube_downloads = None
+        self._trending_ads = None
         # Future service clients will be added here
         
     @property
@@ -260,5 +280,125 @@ class StorylinezClient:
         if self._v2_context is None:
             self._v2_context = V2ContextClient(self.api_key, self.api_secret, self.base_url, self.org_id)
         return self._v2_context
+
+    @property
+    def v2_effects(self) -> V2EffectsClient:
+        """
+        Get the V2 Effects client for catalog and listing endpoints.
+
+        Returns:
+            V2EffectsClient instance
+        """
+        if self._v2_effects is None:
+            self._v2_effects = V2EffectsClient(self.api_key, self.api_secret, self.base_url, self.org_id)
+        return self._v2_effects
+
+    @property
+    def v2_schema(self) -> V2SchemaClient:
+        """
+        Get the V2 Schema client for sequence and asset schema endpoints.
+
+        Returns:
+            V2SchemaClient instance
+        """
+        if self._v2_schema is None:
+            self._v2_schema = V2SchemaClient(self.api_key, self.api_secret, self.base_url, self.org_id)
+        return self._v2_schema
+
+    @property
+    def v2_sequence(self) -> V2SequenceClient:
+        """
+        Get the V2 Sequence client for sequence session endpoints.
+
+        Returns:
+            V2SequenceClient instance
+        """
+        if self._v2_sequence is None:
+            self._v2_sequence = V2SequenceClient(self.api_key, self.api_secret, self.base_url, self.org_id)
+        return self._v2_sequence
+
+    @property
+    def v2_render(self) -> V2RenderClient:
+        """
+        Get the V2 Render client for rendering workflow endpoints.
+
+        Returns:
+            V2RenderClient instance
+        """
+        if self._v2_render is None:
+            self._v2_render = V2RenderClient(self.api_key, self.api_secret, self.base_url, self.org_id)
+        return self._v2_render
+
+    @property
+    def v2_share(self) -> V2ShareClient:
+        """
+        Get the V2 Share client for creating and managing public share links.
+
+        Returns:
+            V2ShareClient instance
+        """
+        if self._v2_share is None:
+            self._v2_share = V2ShareClient(self.api_key, self.api_secret, self.base_url, self.org_id)
+        return self._v2_share
+
+    @property
+    def data_collection(self) -> DataCollectionClient:
+        """
+        Get the Data Collection client for collection and extraction jobs.
+
+        Returns:
+            DataCollectionClient instance
+        """
+        if self._data_collection is None:
+            self._data_collection = DataCollectionClient(self.api_key, self.api_secret, self.base_url, self.org_id)
+        return self._data_collection
+
+    @property
+    def pipeline_jobs(self) -> PipelineJobsClient:
+        """
+        Get the Pipeline Jobs client for V1/V2 pipeline orchestration endpoints.
+
+        Returns:
+            PipelineJobsClient instance
+        """
+        if self._pipeline_jobs is None:
+            self._pipeline_jobs = PipelineJobsClient(self.api_key, self.api_secret, self.base_url, self.org_id)
+        return self._pipeline_jobs
+
+    @property
+    def voice_library(self) -> VoiceLibraryClient:
+        """
+        Get the Voice Library client for voice catalog, user voices, and TTS jobs.
+
+        Returns:
+            VoiceLibraryClient instance
+        """
+        if self._voice_library is None:
+            self._voice_library = VoiceLibraryClient(self.api_key, self.api_secret, self.base_url, self.org_id)
+        return self._voice_library
+
+    @property
+    def youtube_downloads(self) -> YouTubeDownloadsClient:
+        """
+        Get the YouTube Downloads client for token-authenticated batch download jobs.
+
+        Returns:
+            YouTubeDownloadsClient instance
+        """
+        if self._youtube_downloads is None:
+            self._youtube_downloads = YouTubeDownloadsClient(self.api_key, self.api_secret, self.base_url, self.org_id)
+        return self._youtube_downloads
+
+    @property
+    def trending_ads(self) -> TrendingAdsClient:
+        """
+        Get the Trending Ads client for discovery, ratings, comments, and engagement.
+
+        Returns:
+            TrendingAdsClient instance
+        """
+        if self._trending_ads is None:
+            self._trending_ads = TrendingAdsClient(self.api_key, self.api_secret, self.base_url, self.org_id)
+        return self._trending_ads
     
     # Additional service properties will be added as they're implemented

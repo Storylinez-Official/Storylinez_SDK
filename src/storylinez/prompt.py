@@ -582,6 +582,30 @@ class PromptClient(BaseClient):
             raise ValueError("At least one field to update must be provided")
             
         return self._make_request("PUT", f"{self.prompts_url}/update", params=params, json_data=update_data)
+
+    def selfupdate_prompt(self,
+                          prompt_id: str = None,
+                          project_id: str = None) -> Dict:
+        """
+        Refresh a prompt using the latest project data.
+
+        Args:
+            prompt_id: Prompt ID (optional if project_id is provided)
+            project_id: Project ID (optional if prompt_id is provided)
+
+        Returns:
+            Dictionary with refreshed prompt payload
+        """
+        if not prompt_id and not project_id:
+            raise ValueError("Either prompt_id or project_id must be provided")
+
+        payload = {}
+        if prompt_id:
+            payload["prompt_id"] = prompt_id
+        if project_id:
+            payload["project_id"] = project_id
+
+        return self._make_request("PUT", f"{self.prompts_url}/selfupdate", json_data=payload)
     
     def switch_to_text_prompt(self, prompt_id: str, main_prompt: str, document_context: Union[str, List[str]] = "") -> Dict:
         """

@@ -728,6 +728,72 @@ The SDK is organized into logical modules for different aspects of the content c
 | `utils` | Utilities | Helper functions for common tasks |
 | `user` | User management | Profile and subscription operations |
 
+### Advanced Workflow Modules
+
+| Module | Primary Focus | Key Capabilities |
+|--------|--------------|------------------|
+| `v2_project` | V2 media catalog | Manage V2 project media references |
+| `v2_context` | V2 context | Attach briefs, documents, and references |
+| `v2_sequence` | V2 sequencing | Drive sequence builder generation flows |
+| `v2_render` | V2 render jobs | Start and monitor V2 rendering |
+| `v2_effects` | V2 effects | Browse effect catalogs and filters |
+| `v2_schema` | V2 schema | Fetch schema and contract data |
+| `v2_share` | V2 public sharing | Create/revoke share links for rendered outputs |
+| `pipeline_jobs` | End-to-end automation | Start and monitor one-shot V1/V2 pipelines |
+| `data_collection` | Dataset gathering | Collect and extract YouTube-driven data jobs |
+| `voice_library` | Voice catalog + TTS | Manage system/user voices and TTS jobs |
+| `youtube_downloads` | Batch YouTube downloads | Track download jobs and item URLs (Bearer token routes) |
+| `trending_ads` | Ad intelligence workflows | Search/rate/comment/poll/highlight engagement (Bearer token routes) |
+
+Bearer-token notes for `youtube_downloads` and `trending_ads`:
+
+```python
+# Attach token once per client instance
+client.youtube_downloads.set_auth_token("<jwt_token>")
+client.trending_ads.set_auth_token("<jwt_token>")
+
+# Then call endpoints normally
+jobs = client.youtube_downloads.list_jobs(org_id="org_123")
+ads = client.trending_ads.list(page=1, limit=20)
+```
+
+Quick usage examples for the new modules:
+
+```python
+from storylinez import StorylinezClient
+
+client = StorylinezClient(
+    api_key="api_your_key_here",
+    api_secret="your_secret_here",
+    org_id="org_123"
+)
+
+# V2 share links
+share = client.v2_share.create_share(
+    project_id="proj_v2_001",
+    render_id="render_001"
+)
+
+# End-to-end v2 pipeline jobs
+pipeline_job = client.pipeline_jobs.start_v2(
+    label="Launch Video",
+    sequence_prompt="Create a high-energy 30-second launch ad"
+)
+
+# Data collection + extraction
+collection_job = client.data_collection.start_youtube_collection(
+    query="top AI SaaS product ads",
+    max_results=25
+)
+
+# Voice library and TTS
+voices = client.voice_library.list_voices(query="warm female")
+tts_job = client.voice_library.generate_tts(
+    text="Welcome to Storylinez",
+    voice_id=voices["voices"][0]["voice_id"]
+)
+```
+
 ## Detailed Usage Examples
 
 ### Project Management

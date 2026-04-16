@@ -186,6 +186,41 @@ class RenderClient(BaseClient):
         self._project_type_cache[project_id] = project_type
         return project_type
 
+    def get_render_history(
+        self,
+        render_id: Optional[str] = None,
+        project_id: Optional[str] = None,
+        page: int = 1,
+        limit: int = 10,
+        generate_stream_link: bool = True,
+        generate_download_link: bool = True,
+        generate_thumbnail_stream_link: bool = True,
+    ) -> Dict:
+        """
+        Get render history with pagination.
+        """
+        if not render_id and not project_id:
+            raise ValueError("Either render_id or project_id must be provided")
+
+        if page < 1:
+            raise ValueError("page must be >= 1")
+        if limit < 1 or limit > 50:
+            raise ValueError("limit must be between 1 and 50")
+
+        params = {
+            "page": page,
+            "limit": limit,
+            "generate_stream_link": str(bool(generate_stream_link)).lower(),
+            "generate_download_link": str(bool(generate_download_link)).lower(),
+            "generate_thumbnail_stream_link": str(bool(generate_thumbnail_stream_link)).lower(),
+        }
+        if render_id:
+            params["render_id"] = render_id
+        if project_id:
+            params["project_id"] = project_id
+
+        return self._make_request("GET", f"{self.render_url}/history", params=params)
+
     def _ensure_legacy_render_supported(self, project_id: str, project_type_hint: Optional[str]) -> str:
         """Raise when attempting to use legacy render APIs for v2 projects."""
         normalized_hint = self._normalize_project_type_hint(project_type_hint)

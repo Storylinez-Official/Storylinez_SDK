@@ -75,6 +75,27 @@ class V2SequenceClient(BaseClient):
 
         return self._make_request("POST", f"{self._sequence_base_url}/continue", json_data=payload)
 
+    def stop_session(
+        self,
+        project_id: str,
+        org_id: Optional[str] = None,
+        *,
+        session_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Stop an active V2 session loop gracefully."""
+        org = self._require_org(org_id)
+        if not project_id:
+            raise ValueError("project_id is required")
+
+        payload: Dict[str, Any] = {
+            "org_id": org,
+            "project_id": project_id,
+        }
+        if session_id:
+            payload["session_id"] = session_id
+
+        return self._make_request("POST", f"{self._sequence_base_url}/stop", json_data=payload)
+
     def list_sequences(
         self,
         project_id: str,
@@ -189,6 +210,40 @@ class V2SequenceClient(BaseClient):
             payload["session_id"] = session_id
 
         return self._make_request("PUT", f"{self._sequence_base_url}/update", json_data=payload)
+
+    def import_asset(
+        self,
+        project_id: str,
+        tool_name: str,
+        parameters: Dict[str, Any],
+        org_id: Optional[str] = None,
+        *,
+        session_id: Optional[str] = None,
+        sequence_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Import an asset into a sequence via supported V2 import tools.
+        """
+        org = self._require_org(org_id)
+        if not project_id:
+            raise ValueError("project_id is required")
+        if not tool_name:
+            raise ValueError("tool_name is required")
+        if not isinstance(parameters, dict):
+            raise ValueError("parameters must be provided as a dict")
+
+        payload: Dict[str, Any] = {
+            "org_id": org,
+            "project_id": project_id,
+            "tool_name": tool_name,
+            "parameters": parameters,
+        }
+        if session_id:
+            payload["session_id"] = session_id
+        if sequence_id:
+            payload["sequence_id"] = sequence_id
+
+        return self._make_request("POST", f"{self._sequence_base_url}/asset/import", json_data=payload)
 
     def list_snapshots(
         self,

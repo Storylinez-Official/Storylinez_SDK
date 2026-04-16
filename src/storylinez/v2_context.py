@@ -132,6 +132,49 @@ class V2ContextClient(BaseClient):
 
         return self._make_request("GET", f"{self._context_documents_url}/get", params=params)
 
+    def update_document(
+        self,
+        project_id: str,
+        doc_id: str,
+        org_id: Optional[str] = None,
+        *,
+        title: Optional[str] = None,
+        content: Optional[str] = None,
+        summary: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        nickname: Optional[str] = None,
+    ) -> Dict:
+        """
+        Update an existing context document.
+        """
+        org = org_id or self.default_org_id
+        if not org:
+            raise ValueError("Organization ID is required (org_id or default_org_id)")
+        if not project_id:
+            raise ValueError("project_id is required")
+        if not doc_id:
+            raise ValueError("doc_id is required")
+
+        payload: Dict[str, Union[str, List[str]]] = {
+            "org_id": org,
+            "project_id": project_id,
+            "doc_id": doc_id,
+        }
+        if title is not None:
+            payload["title"] = title
+        if content is not None:
+            payload["content"] = content
+        if summary is not None:
+            payload["summary"] = summary
+        if tags is not None:
+            if not isinstance(tags, list):
+                raise ValueError("tags must be a list of strings")
+            payload["tags"] = [str(t) for t in tags]
+        if nickname is not None:
+            payload["nickname"] = nickname
+
+        return self._make_request("PUT", f"{self._context_documents_url}/update", json_data=payload)
+
     def delete_document(self, project_id: str, doc_id: str, org_id: Optional[str] = None) -> Dict:
         """
         Delete a document from the context library.

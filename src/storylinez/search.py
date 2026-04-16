@@ -654,6 +654,62 @@ class SearchClient(BaseClient):
         params.update({k: v for k, v in kwargs.items() if v is not None})
 
         return self._make_request("POST", f"{self.search_url}/files/audio/by-intelligence", params=params, json_data=data)
+
+    def search_audio_by_harmony(self,
+                                chord_keywords: Optional[List[str]] = None,
+                                key_signatures: Optional[List[str]] = None,
+                                chord_progressions: Optional[List[str]] = None,
+                                media_source: str = "user",
+                                folder_path: str = None,
+                                page: int = 1,
+                                page_size: int = 20,
+                                org_id: str = None,
+                                **kwargs) -> Dict:
+        """
+        Search audio assets by harmony signals (chords, keys, progressions).
+        """
+        chord_keywords = chord_keywords or []
+        key_signatures = key_signatures or []
+        chord_progressions = chord_progressions or []
+
+        if not any([chord_keywords, key_signatures, chord_progressions]):
+            raise ValueError(
+                "At least one harmony search parameter is required "
+                "(chord_keywords, key_signatures, or chord_progressions)"
+            )
+
+        for label, values in [
+            ("chord_keywords", chord_keywords),
+            ("key_signatures", key_signatures),
+            ("chord_progressions", chord_progressions),
+        ]:
+            if values and (not isinstance(values, list) or not all(isinstance(item, str) for item in values)):
+                raise TypeError(f"{label} must be a list of strings")
+
+        org_id = org_id or self.default_org_id
+        self._validate_common_params(media_source, org_id, page, page_size)
+
+        params = {
+            "media_source": media_source,
+            "page": page,
+            "page_size": page_size,
+        }
+
+        if media_source == "user":
+            params["org_id"] = org_id
+
+        if folder_path:
+            params["folder_path"] = folder_path
+
+        params.update({k: v for k, v in kwargs.items() if v is not None})
+
+        data = {
+            "chord_keywords": chord_keywords,
+            "key_signatures": key_signatures,
+            "chord_progressions": chord_progressions,
+        }
+
+        return self._make_request("POST", f"{self.search_url}/files/audio/by-harmony", params=params, json_data=data)
     
     def search_audio_by_transcription(self, query: str, media_source: str = "user", 
                                     folder_path: str = None, page: int = 1, page_size: int = 20,

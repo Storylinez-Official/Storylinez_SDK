@@ -18,6 +18,27 @@ class V2ProjectClient(BaseClient):
     ):
         super().__init__(api_key, api_secret, base_url, default_org_id)
         self._projects_media_url = f"{self.base_url}/v2/projects/media"
+        self._projects_settings_url = f"{self.base_url}/v2/projects/settings"
+
+    def get_generation_settings(
+        self,
+        project_id: str,
+        org_id: Optional[str] = None,
+    ) -> Dict:
+        """
+        Get stored generation settings for a V2 project.
+        """
+        org = org_id or self.default_org_id
+        if not org:
+            raise ValueError("Organization ID is required (org_id or default_org_id)")
+        if not project_id:
+            raise ValueError("project_id is required")
+
+        params = {
+            "org_id": org,
+            "project_id": project_id,
+        }
+        return self._make_request("GET", f"{self._projects_settings_url}/generation", params=params)
 
     def add_media(
         self,

@@ -356,6 +356,57 @@ class VoiceoverClient(BaseClient):
         }
         
         return self._make_request("GET", f"{self.voiceover_url}/history", params=params)
+
+    def get_generation_history(self,
+                               voiceover_id: Optional[str] = None,
+                               project_id: Optional[str] = None,
+                               page: int = 1,
+                               limit: int = 20,
+                               generate_audio_links: bool = True) -> Dict:
+        """
+        Get voiceover generation history (versioned audio outputs).
+        """
+        if not voiceover_id and not project_id:
+            raise ValueError("Either voiceover_id or project_id must be provided")
+
+        if page < 1:
+            raise ValueError("page must be >= 1")
+        if limit < 1:
+            raise ValueError("limit must be >= 1")
+
+        params = {
+            "page": page,
+            "limit": limit,
+            "generate_audio_links": str(bool(generate_audio_links)).lower(),
+        }
+        if voiceover_id:
+            params["voiceover_id"] = voiceover_id
+        if project_id:
+            params["project_id"] = project_id
+
+        return self._make_request("GET", f"{self.voiceover_url}/generations", params=params)
+
+    def switch_generation(self,
+                          generation_id: str,
+                          voiceover_id: Optional[str] = None,
+                          project_id: Optional[str] = None) -> Dict:
+        """
+        Switch active voiceover output to a previously generated version.
+        """
+        if not generation_id:
+            raise ValueError("generation_id is required")
+        if not voiceover_id and not project_id:
+            raise ValueError("Either voiceover_id or project_id must be provided")
+
+        payload = {
+            "generation_id": generation_id,
+        }
+        if voiceover_id:
+            payload["voiceover_id"] = voiceover_id
+        if project_id:
+            payload["project_id"] = project_id
+
+        return self._make_request("POST", f"{self.voiceover_url}/switch-generation", json_data=payload)
     
     def get_voice_types(self, refresh_cache: bool = False) -> Dict:
         """

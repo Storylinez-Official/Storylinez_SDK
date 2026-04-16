@@ -525,7 +525,7 @@ class ProjectClient(BaseClient):
             
         Notes:
             - You cannot change a project's orientation after creation
-            - To update project status, use update_project_status method
+            - Project status transitions are server-managed and not updated through this method
             - To manage files, use the dedicated file management methods
         """
         if not project_id:
@@ -582,20 +582,15 @@ class ProjectClient(BaseClient):
         """
         if not project_id:
             raise ValueError("project_id is required")
-            
+
         valid_statuses = ["draft", "ongoing", "error", "completed"]
         if status not in valid_statuses:
             raise ValueError(f"status must be one of: {', '.join(valid_statuses)}")
-            
-        params = {
-            "project_id": project_id
-        }
-        
-        data = {
-            "status": status
-        }
-        
-        return self._make_request("PUT", f"{self.project_url}/update_status", params=params, json_data=data)
+
+        raise NotImplementedError(
+            "Project status updates are not exposed via a dedicated public endpoint on the current API. "
+            "Use backend-managed lifecycle transitions or project-specific workflow endpoints instead."
+        )
     
     def delete_project(self, project_id: str) -> Dict:
         """
@@ -957,6 +952,48 @@ class ProjectClient(BaseClient):
             params["folder_id"] = folder_id
             
         return self._make_request("GET", f"{self.project_url}/by_status", params=params)
+
+    def get_unrendered_projects(self,
+                                org_id: str = None,
+                                project_type: Optional[str] = None,
+                                page: int = 1,
+                                limit: int = 10,
+                                sort_by: str = "updated_at",
+                                sort_order: str = "desc") -> Dict:
+        """
+        List projects that have not produced a successful render yet.
+
+        Args:
+            org_id: Organization ID (uses default if not provided)
+            project_type: Optional project type filter ('v1' or 'v2')
+            page: Page number (minimum 1)
+            limit: Results per page (1..50)
+            sort_by: Sort field
+            sort_order: Sort direction ('asc' or 'desc')
+        """
+        org_id = org_id or self.default_org_id
+        if not org_id:
+            raise ValueError("Organization ID is required. Either provide org_id parameter or set a default_org_id when initializing the client.")
+
+        normalized_type = self._normalize_project_type_hint(project_type)
+        if page < 1:
+            raise ValueError("page must be at least 1")
+        if limit < 1 or limit > 50:
+            raise ValueError("limit must be between 1 and 50")
+        if sort_order not in ["asc", "desc"]:
+            raise ValueError("sort_order must be 'asc' or 'desc'")
+
+        params = {
+            "org_id": org_id,
+            "page": page,
+            "limit": limit,
+            "sort_by": sort_by,
+            "sort_order": sort_order,
+        }
+        if normalized_type:
+            params["type"] = normalized_type
+
+        return self._make_request("GET", f"{self.project_url}/unrendered", params=params)
     
     # Project Files Management
     
