@@ -110,19 +110,7 @@ tts_job = client.voice_library.generate_tts(
 tts_result = client.voice_library.get_tts_job(tts_job["job_id"], poll=True)
 ```
 
-## 6. Token-Based Modules
-
-`youtube_downloads` and `trending_ads` support bearer token auth per module.
-
-```python
-client.youtube_downloads.set_auth_token("<jwt_token>")
-client.trending_ads.set_auth_token("<jwt_token>")
-
-jobs = client.youtube_downloads.list_jobs(org_id="org_123")
-ads = client.trending_ads.list(page=1, limit=20)
-```
-
-## 7. Optional Pipeline Helper Class
+## 6. Optional Pipeline Helper Class
 
 If you want a single helper call for web scraping + brand extraction:
 
@@ -137,7 +125,7 @@ result = pipeline.run_web_scraping_and_brand_extraction(
 )
 ```
 
-## 8. Practical Notes
+## 7. Practical Notes
 
 - Prefer V2 modules for schema-driven editing and session-like interactions.
 - Use pipeline jobs for operational simplicity when teams need fewer SDK calls.

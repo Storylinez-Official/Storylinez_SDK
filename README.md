@@ -176,8 +176,6 @@ All modules are available through `StorylinezClient`.
 | `pipeline_jobs` | Start and track V1/V2 one-shot pipelines |
 | `data_collection` | YouTube collection and extraction jobs |
 | `voice_library` | Voice catalog and TTS jobs |
-| `youtube_downloads` | Batch YouTube download jobs |
-| `trending_ads` | Ads discovery and engagement workflows |
 
 Additional helper class:
 
@@ -217,15 +215,6 @@ Tutorial-style docs are in [guides/](./guides/), including:
 - Organization/team management
 - Prompting and editing guidance
 - Publishing and support workflows
-
-## Bearer Token Notes
-
-`youtube_downloads` and `trending_ads` support bearer-token auth in addition to API key/secret init.
-
-```python
-client.youtube_downloads.set_auth_token("<jwt_token>")
-client.trending_ads.set_auth_token("<jwt_token>")
-```
 
 ## Platform Links
 

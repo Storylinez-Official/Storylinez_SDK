@@ -288,29 +288,6 @@ Notes:
 - `wait_for_tool_completion(tool_id, max_wait_time=120, polling_interval=10)`
 - `create_and_wait(tool_type, name, **kwargs)`
 
-## `trending_ads` - `TrendingAdsClient`
-- `set_auth_token(auth_token)`
-- `search(payload, auth_token=None)`
-- `get_by_id(ad_id, auth_token=None)`
-- `list(category=None, sort_by='smart_default', sort_order=-1, min_average_rating=0, min_total_ratings=0, page=1, limit=20, auto_track_views=True, auth_token=None)`
-- `rate(ad_id, overall_score, category_ratings=None, auth_token=None)`
-- `rating_stats(ad_id, auth_token=None)`
-- `add_comment(ad_id, comment, parent_comment_id=None, auth_token=None)`
-- `list_comments(ad_id, parent_comment_id=None, page=1, limit=20, auth_token=None)`
-- `edit_comment(comment_id, comment, auth_token=None)`
-- `delete_comment(comment_id, auth_token=None)`
-- `react_comment(comment_id, reaction, action='add', auth_token=None)`
-- `list_polls(ad_id, page=1, polls_per_page=50, auth_token=None)`
-- `respond_poll(ad_id, poll_id, selected_option=None, response=None, auth_token=None)`
-- `add_feedback(ad_id, what_worked=None, what_didnt_work=None, suggestions=None, auth_token=None)`
-- `list_feedback(ad_id, feedback_type=None, page=1, limit=10, auth_token=None)`
-- `add_highlight(ad_id, start_time, end_time, annotation=None, auth_token=None)`
-- `list_highlights(ad_id, user_only=False, page=1, limit=50, auth_token=None)`
-- `track_view(ad_id=None, unique_id=None, auth_token=None)`
-- `get_viewed_ads(ad_ids, auth_token=None)`
-- `save_ad(ad_id, auth_token=None)`
-- `unsave_ad(ad_id, auth_token=None)`
-
 ## `user` - `UserClient`
 - `get_current_user()`
 - `get_user(user_id)`
@@ -422,12 +399,4 @@ Notes:
 - `wait_for_completion(voiceover_id=None, project_id=None, timeout_seconds=300, poll_interval=5)`
 - `create_and_wait(project_id, voiceover_code=None, timeout_seconds=300, poll_interval=5)`
 - `get_or_create_voiceover(project_id, voiceover_code=None, wait_for_completion=False, timeout_seconds=300)`
-
-## `youtube_downloads` - `YouTubeDownloadsClient`
-- `set_auth_token(auth_token)`
-- `status(auth_token=None)`
-- `start(urls, org_id=None, name=None, description=None, auth_token=None)`
-- `get_job(job_id, org_id=None, include_urls=True, auth_token=None)`
-- `list_jobs(org_id=None, page=1, page_size=20, status=None, include_urls=True, auth_token=None)`
-- `get_item_url(job_id, item_index, org_id=None, expiration=3600, auth_token=None)`
 

@@ -424,7 +424,7 @@ render_done = client.v2_render.wait_for_render_completion(
 )
 ```
 
-## Data, Voice, and Ads Modules
+## Data and Voice Modules
 
 ### pipeline_jobs
 
@@ -459,38 +459,6 @@ Common operations:
 - `generate_tts`
 - `generate_tts_multi_speaker`
 - `get_tts_job`
-
-### youtube_downloads
-
-Use batch YouTube download pipeline endpoints.
-
-Common operations:
-
-- `set_auth_token`
-- `start`
-- `get_job`
-- `list_jobs`
-- `get_item_url`
-
-### trending_ads
-
-Use ad-discovery, rating, comments, polls, and engagement tracking endpoints.
-
-Common operations:
-
-- `set_auth_token`
-- `search`
-- `rate`
-- `add_comment`
-- `list_polls`
-- `track_view`
-
-Bearer-token setup for these two modules:
-
-```python
-client.youtube_downloads.set_auth_token("<jwt_token>")
-client.trending_ads.set_auth_token("<jwt_token>")
-```
 
 ## Next
 

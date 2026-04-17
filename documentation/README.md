@@ -24,7 +24,6 @@ If you are new to the SDK, start here:
 
 - Method signatures in [Complete Method Reference](./module-method-reference.md) are generated from `src/storylinez/*.py` public methods.
 - Some modules accept either `project_id` or `render_id`/`sequence_id` depending on route shape.
-- `youtube_downloads` and `trending_ads` support Bearer-token style auth in addition to API key/secret initialization.
 
 ## Related Resources
 

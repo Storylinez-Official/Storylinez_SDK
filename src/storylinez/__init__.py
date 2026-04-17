@@ -24,8 +24,6 @@ from .v2_share import V2ShareClient
 from .data_collection import DataCollectionClient
 from .pipeline_jobs import PipelineJobsClient
 from .voice_library import VoiceLibraryClient
-from .youtube_downloads import YouTubeDownloadsClient
-from .trending_ads import TrendingAdsClient
 
 __all__ = [
     'StorylinezClient', 
@@ -53,7 +51,5 @@ __all__ = [
     'V2ShareClient',
     'DataCollectionClient',
     'PipelineJobsClient',
-    'VoiceLibraryClient',
-    'YouTubeDownloadsClient',
-    'TrendingAdsClient'
+    'VoiceLibraryClient'
 ]

@@ -20,8 +20,6 @@ from .v2_share import V2ShareClient
 from .data_collection import DataCollectionClient
 from .pipeline_jobs import PipelineJobsClient
 from .voice_library import VoiceLibraryClient
-from .youtube_downloads import YouTubeDownloadsClient
-from .trending_ads import TrendingAdsClient
 from .settings import SettingsClient
 from .user import UserClient
 from .tools import ToolsClient
@@ -73,8 +71,6 @@ class StorylinezClient:
         self._data_collection = None
         self._pipeline_jobs = None
         self._voice_library = None
-        self._youtube_downloads = None
-        self._trending_ads = None
         # Future service clients will be added here
         
     @property
@@ -376,29 +372,5 @@ class StorylinezClient:
         if self._voice_library is None:
             self._voice_library = VoiceLibraryClient(self.api_key, self.api_secret, self.base_url, self.org_id)
         return self._voice_library
-
-    @property
-    def youtube_downloads(self) -> YouTubeDownloadsClient:
-        """
-        Get the YouTube Downloads client for token-authenticated batch download jobs.
-
-        Returns:
-            YouTubeDownloadsClient instance
-        """
-        if self._youtube_downloads is None:
-            self._youtube_downloads = YouTubeDownloadsClient(self.api_key, self.api_secret, self.base_url, self.org_id)
-        return self._youtube_downloads
-
-    @property
-    def trending_ads(self) -> TrendingAdsClient:
-        """
-        Get the Trending Ads client for discovery, ratings, comments, and engagement.
-
-        Returns:
-            TrendingAdsClient instance
-        """
-        if self._trending_ads is None:
-            self._trending_ads = TrendingAdsClient(self.api_key, self.api_secret, self.base_url, self.org_id)
-        return self._trending_ads
     
     # Additional service properties will be added as they're implemented

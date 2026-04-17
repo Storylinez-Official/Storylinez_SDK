@@ -78,15 +78,7 @@ Maintain at least two render parameter sets:
 - Draft: faster/cheaper previews
 - Final: production resolution and subtitle tuning
 
-## 8. Handle Bearer-Token Modules Deliberately
-
-For `youtube_downloads` and `trending_ads`:
-
-- Set token before calls
-- Refresh token in your app lifecycle
-- Handle unauthorized responses with explicit fallback logic
-
-## 9. Validate Media Inputs
+## 8. Validate Media Inputs
 
 Before upload:
 
@@ -98,7 +90,7 @@ After upload:
 
 - Wait for processing if downstream search/analysis depends on it
 
-## 10. Version Your Workflow Config
+## 9. Version Your Workflow Config
 
 When calling sequence/render/tool modules, keep config snapshots in your own app DB.
 
@@ -109,7 +101,7 @@ Store:
 - template and grading choices
 - render settings
 
-## 11. Suggested Error Envelope
+## 10. Suggested Error Envelope
 
 Wrap SDK exceptions into your own consistent shape:
 
@@ -123,14 +115,14 @@ Wrap SDK exceptions into your own consistent shape:
 }
 ```
 
-## 12. Build Safe Recovery Paths
+## 11. Build Safe Recovery Paths
 
 - If storyboard fails: retry with lower complexity flags
 - If sequence fails: regenerate with simplified prompt
 - If render fails: retry with fewer advanced toggles
 - If a job stalls: fetch status and restart from last successful artifact
 
-## 13. Keep SDK and Docs in Sync
+## 12. Keep SDK and Docs in Sync
 
 When adding or changing module methods:
 
