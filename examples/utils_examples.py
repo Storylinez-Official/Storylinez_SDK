@@ -23,7 +23,7 @@ def main():
     print("\n=== Getting Voice Types ===")
     try:
         voices = client.utils.get_voice_types()
-        print("Available voice types:")
+        print(f"Available voice types:")
         for language, voices in list(voices.get("voice_types", {}).items())[:3]:  # Show first 3 languages only
             print(f"  {language}: {len(voices)} voices")
         print("  ... (more languages available)")
@@ -42,7 +42,7 @@ def main():
     print("\n=== Getting Template Types ===")
     try:
         templates = client.utils.get_template_types()
-        print("Available template categories:")
+        print(f"Available template categories:")
         for category, templates_list in list(templates.get("template_types", {}).items())[:3]:  # Show first 3 categories
             print(f"  {category}: {len(templates_list)} templates")
     except Exception as e:
@@ -52,7 +52,7 @@ def main():
     print("\n=== Getting Color Grades ===")
     try:
         grades = client.utils.get_color_grades()
-        print("Available color grades:")
+        print(f"Available color grades:")
         color_grades = grades.get("color_grades", {})
         print(f"  Single grades: {len(color_grades.get('single', []))} options")
         print(f"  Multiple grades: {len(color_grades.get('multiple', []))} options")
@@ -90,7 +90,7 @@ def main():
             has_error = job_result.get("error") is not None
             
             if has_result:
-                print("Job completed successfully")
+                print(f"Job completed successfully")
                 result = job_result.get("result", {})
                 enhanced_prompt = result.get("prompt", "")
                 print(f"Enhanced prompt: {enhanced_prompt[:100]}...")  # Show first 100 chars
@@ -259,7 +259,7 @@ def main():
             has_error = job_result.get("error") is not None
             
             if has_result:
-                print("Advanced enhancement completed successfully")
+                print(f"Advanced enhancement completed successfully")
                 result = job_result.get("result", {})
                 enhanced_prompt = result.get("prompt", "")
                 print(f"Enhanced prompt (first 150 chars): {enhanced_prompt[:150]}...")

@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Optional, Union, Any
 from .base_client import BaseClient
 
 class CompanyDetailsClient(BaseClient):

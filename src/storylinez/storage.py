@@ -1,8 +1,11 @@
 import os
+import json
 import requests
 import time
 from typing import Dict, List, Optional, Union, Any, Tuple, BinaryIO
 import mimetypes
+from urllib.parse import urljoin
+import warnings
 from .base_client import BaseClient
 from .shared.validation import (
     get_all_media_extensions,
@@ -96,6 +99,7 @@ class StorageClient(BaseClient):
             TimeoutError: If the file doesn't complete within max_wait_time
             ValueError: If file_id is invalid or processing failed
         """
+        import time
 
         if not file_id:
             raise ValueError("file_id is required")
@@ -445,6 +449,7 @@ class StorageClient(BaseClient):
         Returns:
             List of results (success or error info for each file).
         """
+        import time
 
         normalized_model = self._normalize_analysis_model(model)
 

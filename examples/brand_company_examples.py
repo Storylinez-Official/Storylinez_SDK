@@ -131,7 +131,7 @@ def main():
                 # Using hex color with alpha in the update
                 subtitle_bg_color="#FF5733"  # Orange-red
             )
-            print("Updated brand preset with new subtitle styling")
+            print(f"Updated brand preset with new subtitle styling")
             
             # Example: Using the workflow method that combines logo upload and brand creation/update
             if False:  # Set to True to run this example

@@ -1,5 +1,6 @@
+import json
 import requests
-from typing import Dict, List
+from typing import Dict, Optional, Any, Union, List
 from .base_client import BaseClient
 
 class UserClient(BaseClient):
