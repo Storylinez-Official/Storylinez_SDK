@@ -20,4 +20,3 @@ _git_push.bat
 _auto_git_summary.bat
 
 reports/
-.ruff_cache
