@@ -1,8 +1,5 @@
-import os
-import json
-import requests
 import warnings
-from typing import Dict, List, Optional, Union, Any, Tuple
+from typing import Dict, List
 from .base_client import BaseClient
 
 class StockClient(BaseClient):

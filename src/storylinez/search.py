@@ -1,8 +1,5 @@
-import os
-import json
-import requests
 import re
-from typing import Dict, List, Optional, Union, Any, Tuple
+from typing import Dict, List, Optional
 from .base_client import BaseClient
 import warnings
 import colorsys

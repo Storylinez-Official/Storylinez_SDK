@@ -29,7 +29,6 @@ import os
 import glob
 import time
 import math
-from pathlib import Path
 from dotenv import load_dotenv
 import ultraprint.common as p
 from storylinez import StorylinezClient
@@ -151,7 +150,6 @@ def format_file_size(size_bytes):
     if size_bytes == 0:
         return "0 B"
     size_names = ["B", "KB", "MB", "GB", "TB"]
-    import math
     i = int(math.floor(math.log(size_bytes, 1024)))
     p = math.pow(1024, i)
     s = round(size_bytes / p, 2)
@@ -622,7 +620,7 @@ def folder_analysis_menu():
         p.cyan("⏱️ Upload Estimates:")
         p.lgray(f"   Total Data: {scan_result['total_size_formatted']}")
         p.lgray(f"   Estimated Upload Time: ~{estimated_minutes:.1f} minutes")
-        p.lgray(f"   (Actual time depends on internet speed and file processing)")
+        p.lgray("   (Actual time depends on internet speed and file processing)")
         
     except Exception as e:
         print_error(f"Failed to scan folder: {str(e)}")

@@ -1,6 +1,6 @@
 import os
 import requests
-from typing import Dict, List, Optional, Union, Any, Tuple
+from typing import Dict, List, Optional, Union, Tuple
 import re
 import warnings
 from .base_client import BaseClient

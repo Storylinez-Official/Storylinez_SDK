@@ -1,7 +1,4 @@
-import os
-import json
-import requests
-from typing import Dict, List, Optional, Union, Any, Tuple
+from typing import Dict, List, Any
 import warnings
 from .base_client import BaseClient
 
@@ -1056,7 +1053,7 @@ class ToolsClient(BaseClient):
                 
             if limit > 100:
                 warnings.warn(
-                    f"Limit exceeds maximum value of 100. It will be capped to 100.",
+                    "Limit exceeds maximum value of 100. It will be capped to 100.",
                     UserWarning
                 )
                 limit = 100

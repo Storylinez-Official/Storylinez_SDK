@@ -1,7 +1,5 @@
-import os
 import json
-import requests
-from typing import Dict, List, Optional, Union, Any, Literal, TypeVar, cast
+from typing import Dict, Optional, Any
 from .base_client import BaseClient
 
 class SettingsClient(BaseClient):

@@ -1,9 +1,6 @@
 import os
-import sys
 from dotenv import load_dotenv
 from storylinez import StorylinezClient
-from pprint import pprint
-import time
 
 # Load environment variables from .env file
 load_dotenv()
@@ -542,7 +539,7 @@ def demo_upload_directory(client):
         
         # Show results
         counts = results.get("counts", {})
-        print(f"\nUpload complete!")
+        print("\nUpload complete!")
         print(f"Successful uploads: {counts.get('success', 0)}")
         print(f"Failed uploads: {counts.get('failed', 0)}")
         print(f"Skipped files: {counts.get('skipped', 0)}")

@@ -2102,7 +2102,7 @@ def continue_project_workflow(client, project_id):
         has_prompt = False
         try:
             prompt = client.prompt.get_prompt_by_project(project_id)
-            has_prompt = prompt and not "error" in prompt
+            has_prompt = prompt and "error" not in prompt
         except Exception:
             pass
         
@@ -2122,7 +2122,7 @@ def continue_project_workflow(client, project_id):
         has_storyboard = False
         try:
             storyboard = client.storyboard.get_storyboard(project_id=project_id)
-            has_storyboard = storyboard and not "error" in storyboard
+            has_storyboard = storyboard and "error" not in storyboard
         except Exception:
             pass
         
@@ -2140,7 +2140,7 @@ def continue_project_workflow(client, project_id):
         has_voiceover = False
         try:
             voiceover = client.voiceover.get_voiceover(project_id=project_id)
-            has_voiceover = voiceover and not "error" in voiceover
+            has_voiceover = voiceover and "error" not in voiceover
         except Exception:
             pass
         
@@ -2158,7 +2158,7 @@ def continue_project_workflow(client, project_id):
         has_sequence = False
         try:
             sequence = client.sequence.get_sequence(project_id=project_id)
-            has_sequence = sequence and not "error" in sequence
+            has_sequence = sequence and "error" not in sequence
         except Exception:
             pass
         
@@ -2175,7 +2175,7 @@ def continue_project_workflow(client, project_id):
         has_render = False
         try:
             render = client.render.get_render(project_id=project_id)
-            has_render = render and not "error" in render
+            has_render = render and "error" not in render
         except Exception:
             pass
         

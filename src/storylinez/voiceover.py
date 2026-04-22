@@ -1,10 +1,8 @@
 import os
-import json
 import requests
 import time
 import re
-from typing import Dict, List, Optional, Union, Any, BinaryIO, Tuple
-from datetime import datetime
+from typing import Dict, List, Optional, Any
 from .base_client import BaseClient
 from .shared.validation import validate_media_extension
 
@@ -499,7 +497,7 @@ class VoiceoverClient(BaseClient):
         )
         
         # Upload the file to the provided URL
-        print(f"Uploading file to Storylinez servers...")
+        print("Uploading file to Storylinez servers...")
         with open(file_path, "rb") as file:
             upload_url = upload_result["upload_url"]
             response = requests.put(upload_url, data=file.read())
@@ -508,7 +506,7 @@ class VoiceoverClient(BaseClient):
                 raise Exception(f"File upload failed with status {response.status_code}: {response.text}")
         
         # Complete the upload
-        print(f"Finalizing upload...")
+        print("Finalizing upload...")
         completion_result = storage_client.mark_upload_complete(
             upload_id=upload_result["upload_id"],
             context=f"Voiceover file for project {project_id}"
@@ -517,10 +515,10 @@ class VoiceoverClient(BaseClient):
         file_id = completion_result["file"]["file_id"]
         
         # Add the file as project voiceover
-        print(f"Associating voiceover file with project...")
+        print("Associating voiceover file with project...")
         result = self.add_voiceover_to_project(project_id, file_id, voice_name)
         
-        print(f"Voiceover file uploaded successfully!")
+        print("Voiceover file uploaded successfully!")
         return result
     
     def add_voiceover_to_project(self, 
@@ -744,7 +742,7 @@ class VoiceoverClient(BaseClient):
             status = job_result.get('status')
             
             if status == 'COMPLETED':
-                print(f"Voiceover generation completed successfully!")
+                print("Voiceover generation completed successfully!")
                 return voiceover
             elif status in ['FAILED', 'ERROR']:
                 error_message = job_result.get('error', 'Unknown error')
@@ -787,7 +785,7 @@ class VoiceoverClient(BaseClient):
         if not voiceover_id:
             raise Exception("Failed to get voiceover_id from creation response")
             
-        print(f"Voiceover creation initiated. Waiting for completion...")
+        print("Voiceover creation initiated. Waiting for completion...")
         
         # Wait for completion
         return self.wait_for_completion(
@@ -839,7 +837,7 @@ class VoiceoverClient(BaseClient):
             if not voiceover_id:
                 raise Exception("Failed to get voiceover_id from creation response")
                 
-            print(f"Waiting for voiceover generation to complete...")
+            print("Waiting for voiceover generation to complete...")
             return self.wait_for_completion(
                 voiceover_id=voiceover_id,
                 timeout_seconds=timeout_seconds

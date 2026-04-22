@@ -1,5 +1,4 @@
 import os
-import sys
 from dotenv import load_dotenv
 from storylinez import StorylinezClient
 
@@ -147,23 +146,23 @@ def main():
         projects_monthly = subscription.get('projects', {}).get('monthly_limit', 0)
         projects_daily = subscription.get('projects', {}).get('daily_limit', 0)
         
-        print(f"\n✓ Storage usage:")
+        print("\n✓ Storage usage:")
         print(f"  ↳ {storage_used_gb:.2f} GB used of {storage_limit_gb} GB limit ({storage_percentage:.1f}%)")
         
-        print(f"\n✓ Project limits:")
+        print("\n✓ Project limits:")
         print(f"  ↳ {projects_monthly} monthly, {projects_daily} daily")
         
         # Show period information
         period = subscription.get('period', {})
         if period:
-            print(f"\n✓ Current billing period:")
+            print("\n✓ Current billing period:")
             print(f"  ↳ {period.get('current_period_start')} to {period.get('current_period_end')}")
             print(f"  ↳ Auto-renew: {'Enabled' if period.get('auto_renew', False) else 'Disabled'}")
         
         # Show content processing information
         content = subscription.get('content_processing', {})
         if content:
-            print(f"\n✓ Content processing:")
+            print("\n✓ Content processing:")
             print(f"  ↳ {content.get('period_processed_gb', 0):.2f} GB used of {content.get('period_limit_gb', 0)} GB limit")
             print(f"  ↳ {content.get('percentage_used', 0):.1f}% of period allocation")
     except Exception as e:
@@ -175,7 +174,7 @@ def main():
         project_usage = client.user.get_project_usage()
         
         # Monthly usage
-        print(f"✓ Monthly project usage:")
+        print("✓ Monthly project usage:")
         monthly_limit = project_usage.get('monthly_limit', 0)
         monthly_used = project_usage.get('monthly_used', 0)
         monthly_remaining = project_usage.get('monthly_remaining', 0)
@@ -185,7 +184,7 @@ def main():
         print(f"  ↳ {monthly_remaining} projects remaining this month")
         
         # Daily usage
-        print(f"\n✓ Daily project usage:")
+        print("\n✓ Daily project usage:")
         daily_limit = project_usage.get('daily_limit', 0)
         daily_used = project_usage.get('daily_used', 0)
         daily_remaining = project_usage.get('daily_remaining', 0)
@@ -229,7 +228,7 @@ def main():
         # Show billing period if available
         billing_period = extras.get('billing_period', {})
         if billing_period:
-            print(f"\n✓ Current billing period:")
+            print("\n✓ Current billing period:")
             print(f"  ↳ {billing_period.get('start')} to {billing_period.get('end')}")
     except Exception as e:
         print(f"✗ Error getting extra projects: {str(e)}")
