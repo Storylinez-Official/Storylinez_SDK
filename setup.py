@@ -21,5 +21,14 @@ setup(
         'python-dotenv',
         'ultraprint>=3.4.0',
     ],
+    extras_require={
+        # Optional MCP server: pip install "storylinez[mcp]"
+        'mcp': ['mcp[cli]>=1.2.0'],
+    },
+    entry_points={
+        'console_scripts': [
+            'storylinez-mcp = storylinez.mcp.server:main',
+        ],
+    },
     python_requires='>=3.6',
 )

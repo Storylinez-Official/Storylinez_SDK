@@ -181,6 +181,20 @@ Additional helper class:
 
 - `PipelineClient` in `src/storylinez/pipeline.py` for combined web scraping + brand extraction helper flow.
 
+## MCP Server (drive Storylinez from any AI agent)
+
+The SDK ships an optional **Model Context Protocol** server so MCP-capable agents
+(Claude Desktop, Cursor, Codex, your own client) can operate a Storylinez account with
+your API key. The headline tool is the **end-to-end video pipeline** — a prompt in,
+a finished video out — plus project, search, sequence, and render tools.
+
+```bash
+pip install "storylinez[mcp]"
+storylinez-mcp   # reads STORYLINEZ_API_KEY / STORYLINEZ_API_SECRET / STORYLINEZ_ORG_ID from env
+```
+
+See [guides/mcp_server.md](./guides/mcp_server.md) for client configuration and the full tool list.
+
 ## Detailed Documentation
 
 New detailed docs are now available in [documentation/](./documentation/):
