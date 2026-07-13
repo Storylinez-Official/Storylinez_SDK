@@ -4,7 +4,7 @@
 [![Python Versions](https://img.shields.io/pypi/pyversions/storylinez.svg)](https://pypi.org/project/storylinez/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-![Storylinez SDK - AI-driven content creation platform](https://github.com/Storylinez-Official/Storylinez_SDK/blob/39634c47dcb72d833a38a5292186116bdf513d5f/assets/Storylinez%20Cover.png)
+![Storylinez SDK — Build on the Engine](https://raw.githubusercontent.com/Stroylinz-Official/Storylinez_SDK/master/assets/branding/storylinez-sdk-banner.png)
 
 Build production-grade AI video workflows in Python.
 
